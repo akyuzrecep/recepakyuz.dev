@@ -28,6 +28,7 @@ var (
 	addr    = flag.String("addr", ":8080", "dinlenecek adres")
 	keysDir = flag.String("keys", "keys", "anahtar dosyalarının dizini (<konum>.pub)")
 	dev     = flag.Bool("dev", false, "web/ dizinini diskten oku (her istekte yeniden yükler)")
+	dataDir = flag.String("data", "data", "ziyaretçi verisi, geo veritabanı (dbip-city.mmdb) ve stats.pass dizini")
 )
 
 // Geçerli bir authorized_keys satırı: tip + base64 gövde + opsiyonel yorum.
@@ -282,6 +283,10 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/static/", serveStatic)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })
+	vis := NewVisitors(*dataDir)
+	mux.HandleFunc("GET /api/live", vis.handleLive)
+	mux.HandleFunc("GET /api/visitors", vis.handleHistory)
+	mux.HandleFunc("GET /stats", vis.handleStats)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(hostOnly(r), "ssh.") {
 			handleSSH(w, r)

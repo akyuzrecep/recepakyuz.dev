@@ -28,6 +28,7 @@
   --g-home: 255, 214, 140;
   --g-glow: 0.55;
   --g-planet-shade: 4, 7, 20;
+  --g-visit: 94, 234, 212;
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -65,6 +66,7 @@
     --g-home: 214, 92, 40;
     --g-glow: 0;
     --g-planet-shade: 150, 160, 190;
+    --g-visit: 13, 148, 136;
   }
 }
 :root[data-theme="light"] {
@@ -94,6 +96,7 @@
   --g-home: 214, 92, 40;
   --g-glow: 0;
   --g-planet-shade: 150, 160, 190;
+    --g-visit: 13, 148, 136;
 }
 
 /* ---------- temel ---------- */

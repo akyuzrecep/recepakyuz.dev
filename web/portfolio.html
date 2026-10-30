@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<canvas id="globe" aria-hidden="true"></canvas>
+<canvas id="globe" data-visitors="1" data-page="home" aria-hidden="true"></canvas>
 <p class="headline" id="headline"></p>
 
 <main class="shell" id="shell">
@@ -36,6 +36,7 @@
     <span id="clock"></span>
     <span id="loc"></span>
     <span id="keys"></span>
+    <span id="privacy"></span>
   </div>
 </main>
 <p class="hint-away" id="hintAway"></p>
@@ -55,7 +56,7 @@
   const UI = {
     tr: {
       tabs: ["ana", "hakkımda", "deneyim", "projeler", "yetkinlikler", "şu an", "iletişim"],
-      live: "canlı", keys: "1-7 sekme · / komut · esc dünya", away: "dünyayı izliyorsun — esc ile geri dön",
+      live: "canlı", keys: "1-7 sekme · / komut · esc dünya", privacy: "dünyadaki noktalar ziyaretçiler · şehir düzeyinde, IP saklanmaz ·", away: "dünyayı izliyorsun — esc ile geri dön",
       cv: "CV'yi görüntüle", ssh: "ssh anahtarlarım", notfound: "komut bulunamadı", tryHelp: "'help' yaz",
       boot: "sistem ayakta", modules: "modül yüklendi", sudo: "bu olay rapor edilecek.",
       theme: { dark: "Açık temaya geç", light: "Koyu temaya geç" },
@@ -67,7 +68,7 @@
     },
     en: {
       tabs: ["home", "about", "experience", "projects", "skills", "now", "contact"],
-      live: "live", keys: "1-7 tabs · / command · esc globe", away: "watching the world — esc to come back",
+      live: "live", keys: "1-7 tabs · / command · esc globe", privacy: "dots on the globe are visitors · city level, no IPs stored ·", away: "watching the world — esc to come back",
       cv: "view CV", ssh: "my ssh keys", notfound: "command not found", tryHelp: "try 'help'",
       boot: "system up", modules: "modules loaded", sudo: "this incident will be reported.",
       theme: { dark: "Switch to light theme", light: "Switch to dark theme" },
@@ -283,6 +284,8 @@
     document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === l));
     $("live").textContent = L().live;
     $("keys").textContent = L().keys;
+    $("privacy").textContent = L().privacy + " ";
+    $("privacy").append(link("DB-IP", "https://db-ip.com"));
     $("hintAway").textContent = L().away;
     $("cvTop").setAttribute("aria-label", L().cv);
     rotateHeadline(true);

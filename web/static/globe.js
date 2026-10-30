@@ -31,7 +31,7 @@
       dot: v("--g-dot"), body1: v("--g-body-1"), body2: v("--g-body-2"),
       halo: v("--g-halo"), haloA: parseFloat(v("--g-halo-a")) || 0.2, rim: v("--g-rim"),
       star: v("--g-star"), meteor: v("--g-meteor"), home: v("--g-home"),
-      glow: parseFloat(v("--g-glow")) || 0, shade: v("--g-planet-shade"),
+      glow: parseFloat(v("--g-glow")) || 0, shade: v("--g-planet-shade"), visit: v("--g-visit") || "94,234,212",
     };
   }
   readTheme();
@@ -199,6 +199,115 @@
     }
   }
 
+  // ---- ziyaretçiler: son 7 gün (sabit nokta), şu an sitede olanlar (nabız), yeni gelen → ev arası yay ----
+  const VIS = canvas.dataset.visitors === "1";
+  let visHistory = [], online = new Map(), self = null, arcs = [];
+  const near = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] > 0.99995;
+
+  function projectFull(x, y, z) { // birim olmayan vektörler için (yay küreden yükselir)
+    const cl = Math.cos(lambda), sl = Math.sin(lambda), cp = Math.cos(phi), sp = Math.sin(phi);
+    const x1 = x * cl + z * sl, z1 = -x * sl + z * cl;
+    const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+    const visible = z2 > 0 || x1 * x1 + y2 * y2 > 1;
+    return [cx + x1 * R, cy - y2 * R, visible];
+  }
+  function slerp(a, b, s) {
+    const d = Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+    const om = Math.acos(d);
+    if (om < 1e-4) return a;
+    const k1 = Math.sin((1 - s) * om) / Math.sin(om), k2 = Math.sin(s * om) / Math.sin(om);
+    return [a[0] * k1 + b[0] * k2, a[1] * k1 + b[1] * k2, a[2] * k1 + b[2] * k2];
+  }
+  function addArc(from) {
+    const h = homeOf(), to = vec(h[0], h[1]);
+    if (!near(from, to)) arcs.push({ a: from, b: to, t: 0 });
+  }
+
+  async function startVisitors() {
+    try {
+      const list = await (await fetch("/api/visitors")).json();
+      visHistory = list.map((p) => ({ v: vec(p.lat, p.lon), n: p.n || 1 }));
+    } catch {}
+    const es = new EventSource("/api/live?page=" + encodeURIComponent(canvas.dataset.page || location.pathname));
+    es.addEventListener("hello", (e) => {
+      const d = JSON.parse(e.data);
+      online = new Map(d.online.map((p) => [p.id, { v: vec(p.lat, p.lon) }]));
+      if (d.self) {
+        const v = vec(d.self.lat, d.self.lon);
+        if (!self) setTimeout(() => addArc(v), 1500); // hoş geldin yayı
+        self = { v };
+        if (!visHistory.some((h) => near(h.v, v))) visHistory.push({ v, n: 1 });
+      }
+    });
+    es.addEventListener("join", (e) => {
+      const p = JSON.parse(e.data), v = vec(p.lat, p.lon);
+      online.set(p.id, { v });
+      if (!visHistory.some((h) => near(h.v, v))) visHistory.push({ v, n: 1 });
+      addArc(v);
+    });
+    es.addEventListener("leave", (e) => online.delete(JSON.parse(e.data).id));
+  }
+
+  function drawVisitors(t, dt) {
+    if (!VIS) return;
+    const c = T.visit, k = Math.max(0.8, R / 300);
+    // geçmiş: sabit noktalar (çok ziyaret → biraz daha büyük)
+    for (const h of visHistory) {
+      const p = project(...h.v);
+      if (p[2] <= 0.05) continue;
+      const a = Math.min(1, p[2] * 2.5), r = (1.8 + Math.log2(h.n) * 0.7) * k;
+      ctx.fillStyle = `rgba(${c},${0.16 * a})`;
+      ctx.beginPath(); ctx.arc(p[0], p[1], r * 3, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(${c},${0.9 * a})`;
+      ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill();
+    }
+    // şu an sitede olanlar: sürekli nabız
+    const pulseAt = (v, seed) => {
+      const p = project(...v);
+      if (p[2] <= 0.05) return null;
+      const e = (t * 0.6 + seed) % 1;
+      ctx.strokeStyle = `rgba(${c},${(1 - e) * 0.8})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 3 + e * 16 * k, 0, 7); ctx.stroke();
+      ctx.fillStyle = `rgb(${c})`;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 2.4 * k, 0, 7); ctx.fill();
+      return p;
+    };
+    for (const [id, o] of online) pulseAt(o.v, (id * 0.37) % 1);
+    if (self) {
+      const p = pulseAt(self.v, 0);
+      if (p) {
+        const label = document.documentElement.lang === "en" ? "you are here" : "sen buradasın";
+        ctx.font = `500 11px "Geist Mono", ui-monospace, monospace`;
+        ctx.fillStyle = `rgba(${c},${Math.min(1, p[2] * 2.5)})`;
+        ctx.fillText(label, p[0] + 10, p[1] - 8);
+      }
+    }
+    // yaylar: ziyaretçinin şehrinden eve, kürenin üstünden
+    arcs = arcs.filter((a) => (a.t += dt) < 2.6);
+    ctx.lineCap = "round";
+    for (const a of arcs) {
+      const head = Math.min(1, a.t / 1.8), ease = 1 - Math.pow(1 - head, 3);
+      const tail = Math.max(0, ease - 0.45), fadeOut = a.t > 1.8 ? 1 - (a.t - 1.8) / 0.8 : 1;
+      const N = 28;
+      let prev = null;
+      for (let i = 0; i <= N; i++) {
+        const s = tail + (ease - tail) * (i / N);
+        const lift = 1 + 0.18 * Math.sin(Math.PI * s);
+        const v = slerp(a.a, a.b, s), q = projectFull(v[0] * lift, v[1] * lift, v[2] * lift);
+        if (prev && q[2] && prev[2]) {
+          ctx.strokeStyle = `rgba(${c},${(i / N) * 0.9 * fadeOut})`; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+        }
+        prev = q;
+      }
+      if (head >= 1 && !a.done) {
+        a.done = true;
+        const hp = project(...a.b);
+        if (hp[2] > 0) pulses.push({ x: hp[0], y: hp[1], t: 0 });
+      }
+    }
+  }
+
   function drawAtmosphere() {
     // dış hale
     let g = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.35);
@@ -346,11 +455,13 @@
     updateComet(dt);
     drawComet();
     drawPulses(dt);
+    drawVisitors(now / 1000, dt);
     requestAnimationFrame(frame);
   }
 
   resize();
   addEventListener("resize", resize);
   load().catch((e) => console.error("globe:", e));
+  if (VIS) startVisitors();
   requestAnimationFrame(frame);
 })();

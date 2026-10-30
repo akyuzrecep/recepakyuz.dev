@@ -7,12 +7,14 @@ Wants=network-online.target
 User=ubuntu
 WorkingDirectory=/home/ubuntu/recep/website
 # Yalnızca localhost'u dinler; dışarıya nginx açar.
-ExecStart=/home/ubuntu/recep/website/bin/site -addr 127.0.0.1:8787 -keys /home/ubuntu/recep/website/keys
+ExecStart=/home/ubuntu/recep/website/bin/site -addr 127.0.0.1:8787 -keys /home/ubuntu/recep/website/keys -data /home/ubuntu/recep/website/data
 Restart=always
 RestartSec=2
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
+# ziyaretçi kayıtları buraya yazılır
+ReadWritePaths=/home/ubuntu/recep/website/data
 PrivateTmp=true
 
 [Install]
