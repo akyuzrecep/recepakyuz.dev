@@ -284,8 +284,7 @@ func main() {
 	mux.HandleFunc("/static/", serveStatic)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })
 	vis := NewVisitors(*dataDir)
-	mux.HandleFunc("GET /api/live", vis.handleLive)
-	mux.HandleFunc("GET /api/visitors", vis.handleHistory)
+	mux.HandleFunc("POST /api/ping", vis.handlePing)
 	mux.HandleFunc("GET /stats", vis.handleStats)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(hostOnly(r), "ssh.") {

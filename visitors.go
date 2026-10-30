@@ -1,4 +1,4 @@
-// Ziyaretçiler: IP → şehir (DB-IP Lite, yerel), son 7 gün geçmiş, canlı akış (SSE), özel /stats sayfası.
+// Ziyaretçiler: IP → şehir (DB-IP Lite, yerel), şu an sitede olanlar (30 sn ping), 7 günlük kayıt ve özel /stats sayfası.
 // Gizlilik: IP yalnızca o anki şehir araması ve günlük tekrar sayımını engellemek için (tuzlu hash, bellekte) kullanılır;
 // diske yalnızca zaman, şehir, ülke ve ~10 km'ye yuvarlanmış koordinat yazılır.
 package main
@@ -10,7 +10,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"log"
 	"math"
@@ -19,6 +18,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -44,11 +44,13 @@ type Geo struct {
 	Lat, Lon          float64
 }
 
-type liveConn struct {
-	id  int
-	geo *Geo
-	ch  chan []byte
+// Şu an sitede olan bir sekme. Kimlik: tarayıcının ürettiği rastgele oturum kodu (IP değil).
+type session struct {
+	geo  *Geo
+	seen time.Time
 }
+
+const sessionTTL = 70 * time.Second // ping 30 sn'de bir; iki ping kaçarsa çıkmış sayılır
 
 type Visitors struct {
 	mu      sync.Mutex
@@ -58,13 +60,12 @@ type Visitors struct {
 	day     string
 	salt    []byte
 	seen    map[string]bool
-	live    map[int]*liveConn
-	nextID  int
+	live    map[string]*session
 	statsPw string
 }
 
 func NewVisitors(dataDir string) *Visitors {
-	v := &Visitors{file: filepath.Join(dataDir, "visits.jsonl"), live: map[int]*liveConn{}}
+	v := &Visitors{file: filepath.Join(dataDir, "visits.jsonl"), live: map[string]*session{}}
 	if db, err := maxminddb.Open(filepath.Join(dataDir, "dbip-city.mmdb")); err == nil {
 		v.db = db
 	} else {
@@ -192,123 +193,64 @@ func (v *Visitors) firstToday(ip netip.Addr, ua string) bool {
 	return true
 }
 
-func (v *Visitors) broadcast(msg []byte, except int) {
-	for id, c := range v.live {
-		if id == except {
-			continue
-		}
-		select {
-		case c.ch <- msg:
-		default: // yavaş istemciyi bekletme
-		}
-	}
-}
-
-func sse(event string, data any) []byte {
-	b, _ := json.Marshal(data)
-	return []byte(fmt.Sprintf("event: %s\ndata: %s\n\n", event, b))
-}
-
 type point struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
-	N   int     `json:"n,omitempty"`
-	ID  int     `json:"id,omitempty"`
+	ID  string  `json:"id,omitempty"`
 }
 
-// GET /api/live — sayfayı açan tarayıcı bağlanır: ziyaret sayılır, canlı listeye girer, olayları dinler.
-func (v *Visitors) handleLive(w http.ResponseWriter, r *http.Request) {
-	fl, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "stream yok", 500)
+var sidRe = regexp.MustCompile(`^[A-Za-z0-9-]{8,64}$`)
+
+// POST /api/ping?sid=…&page=… — sayfa açıkken 30 sn'de bir çağrılır.
+// İlk pingte ziyaret (günde bir kez) kaydedilir; yanıt şu an sitede olanların listesidir.
+func (v *Visitors) handlePing(w http.ResponseWriter, r *http.Request) {
+	sid, page := r.URL.Query().Get("sid"), r.URL.Query().Get("page")
+	if !sidRe.MatchString(sid) || isBot(r.UserAgent()) {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	ip, ua := clientIP(r), r.UserAgent()
-	var geo *Geo
-	if !isBot(ua) { // botlar ne kaydedilir ne de dünyada görünür
-		geo = v.lookup(ip)
-	}
-	page := r.URL.Query().Get("page")
 	if len(page) > 40 {
 		page = page[:40]
 	}
+	now := time.Now()
+	// istemciye giden kimlik: oturum kodunun kısaltılmış hash'i (başkasının kodu görünmesin)
+	pub := func(id string) string { h := sha256.Sum256([]byte(id)); return hex.EncodeToString(h[:6]) }
 
-	c := &liveConn{geo: geo, ch: make(chan []byte, 16)}
 	v.mu.Lock()
-	v.nextID++
-	c.id = v.nextID
-	if geo != nil && v.firstToday(ip, ua) {
-		x := Visit{T: time.Now().UTC(), City: geo.City, Country: geo.Country, CC: geo.CC, Lat: geo.Lat, Lon: geo.Lon, Page: page}
-		v.visits = append(v.visits, x)
-		if f, err := os.OpenFile(v.file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
-			json.NewEncoder(f).Encode(x)
-			f.Close()
+	s, ok := v.live[sid]
+	if !ok {
+		ip := clientIP(r)
+		s = &session{geo: v.lookup(ip)}
+		v.live[sid] = s
+		if g := s.geo; g != nil && v.firstToday(ip, r.UserAgent()) {
+			x := Visit{T: now.UTC(), City: g.City, Country: g.Country, CC: g.CC, Lat: g.Lat, Lon: g.Lon, Page: page}
+			v.visits = append(v.visits, x)
+			if f, err := os.OpenFile(v.file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
+				json.NewEncoder(f).Encode(x)
+				f.Close()
+			}
 		}
 	}
+	s.seen = now
 	online := []point{}
-	for _, o := range v.live {
-		if o.geo != nil {
-			online = append(online, point{Lat: o.geo.Lat, Lon: o.geo.Lon, ID: o.id})
+	for id, o := range v.live {
+		if now.Sub(o.seen) > sessionTTL {
+			delete(v.live, id)
+			continue
+		}
+		if o.geo != nil && id != sid {
+			online = append(online, point{Lat: o.geo.Lat, Lon: o.geo.Lon, ID: pub(id)})
 		}
 	}
-	v.live[c.id] = c
-	if geo != nil {
-		v.broadcast(sse("join", point{Lat: geo.Lat, Lon: geo.Lon, ID: c.id}), c.id)
+	resp := map[string]any{"online": online}
+	if s.geo != nil {
+		resp["self"] = point{Lat: s.geo.Lat, Lon: s.geo.Lon}
 	}
 	v.mu.Unlock()
 
-	defer func() {
-		v.mu.Lock()
-		delete(v.live, c.id)
-		if geo != nil {
-			v.broadcast(sse("leave", point{ID: c.id}), c.id)
-		}
-		v.mu.Unlock()
-	}()
-
-	h := w.Header()
-	h.Set("Content-Type", "text/event-stream")
-	h.Set("Cache-Control", "no-store")
-	h.Set("X-Accel-Buffering", "no")
-	hello := map[string]any{"online": online}
-	if geo != nil {
-		hello["self"] = point{Lat: geo.Lat, Lon: geo.Lon, ID: c.id}
-	}
-	w.Write(sse("hello", hello))
-	fl.Flush()
-
-	ping := time.NewTicker(25 * time.Second)
-	defer ping.Stop()
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case msg := <-c.ch:
-			w.Write(msg)
-			fl.Flush()
-		case <-ping.C:
-			w.Write([]byte(": ping\n\n"))
-			fl.Flush()
-		}
-	}
-}
-
-// GET /api/visitors — son 7 günün noktaları (aynı koordinatlar birleştirilir).
-func (v *Visitors) handleHistory(w http.ResponseWriter, r *http.Request) {
-	v.mu.Lock()
-	v.prune()
-	agg := map[[2]float64]int{}
-	for _, x := range v.visits {
-		agg[[2]float64{x.Lat, x.Lon}]++
-	}
-	v.mu.Unlock()
-	out := make([]point, 0, len(agg))
-	for k, n := range agg {
-		out = append(out, point{Lat: k[0], Lon: k[1], N: n})
-	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(out)
+	json.NewEncoder(w).Encode(resp)
 }
 
 // ---------- /stats (yalnızca Recep) ----------
@@ -358,6 +300,12 @@ func (v *Visitors) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	v.mu.Lock()
 	v.prune()
+	now := time.Now()
+	for id, o := range v.live {
+		if now.Sub(o.seen) > sessionTTL {
+			delete(v.live, id)
+		}
+	}
 	d := statsData{Total: len(v.visits), Online: len(v.live)}
 	days, countries, cities, pages := map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}
 	for _, x := range v.visits {

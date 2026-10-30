@@ -199,9 +199,9 @@
     }
   }
 
-  // ---- ziyaretçiler: son 7 gün (sabit nokta), şu an sitede olanlar (nabız), yeni gelen → ev arası yay ----
+  // ---- ziyaretçiler: şu an sitede olanlar (nabız), yeni gelen → ev arası yay ----
   const VIS = canvas.dataset.visitors === "1";
-  let visHistory = [], online = new Map(), self = null, arcs = [];
+  let online = new Map(), self = null, arcs = [];
   const near = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] > 0.99995;
 
   function projectFull(x, y, z) { // birim olmayan vektörler için (yay küreden yükselir)
@@ -223,44 +223,40 @@
     if (!near(from, to)) arcs.push({ a: from, b: to, t: 0 });
   }
 
-  async function startVisitors() {
+  // 30 sn'de bir "buradayım" der, yanıtta şu an sitede olanları alır (sürekli bağlantı yok)
+  function startVisitors() {
+    let sid;
     try {
-      const list = await (await fetch("/api/visitors")).json();
-      visHistory = list.map((p) => ({ v: vec(p.lat, p.lon), n: p.n || 1 }));
-    } catch {}
-    const es = new EventSource("/api/live?page=" + encodeURIComponent(canvas.dataset.page || location.pathname));
-    es.addEventListener("hello", (e) => {
-      const d = JSON.parse(e.data);
-      online = new Map(d.online.map((p) => [p.id, { v: vec(p.lat, p.lon) }]));
-      if (d.self) {
-        const v = vec(d.self.lat, d.self.lon);
-        if (!self) setTimeout(() => addArc(v), 1500); // hoş geldin yayı
-        self = { v };
-        if (!visHistory.some((h) => near(h.v, v))) visHistory.push({ v, n: 1 });
-      }
-    });
-    es.addEventListener("join", (e) => {
-      const p = JSON.parse(e.data), v = vec(p.lat, p.lon);
-      online.set(p.id, { v });
-      if (!visHistory.some((h) => near(h.v, v))) visHistory.push({ v, n: 1 });
-      addArc(v);
-    });
-    es.addEventListener("leave", (e) => online.delete(JSON.parse(e.data).id));
+      sid = sessionStorage.getItem("sid");
+      if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem("sid", sid); }
+    } catch { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); }
+    const url = `/api/ping?sid=${encodeURIComponent(sid)}&page=${encodeURIComponent(canvas.dataset.page || location.pathname)}`;
+    let first = true;
+    async function ping() {
+      if (document.hidden) return;
+      try {
+        const r = await fetch(url, { method: "POST" });
+        if (r.status !== 200) return;
+        const d = await r.json();
+        const next = new Map(d.online.map((p) => [p.id, { v: vec(p.lat, p.lon) }]));
+        if (!first) for (const [id, o] of next) if (!online.has(id)) addArc(o.v); // yeni gelen → eve yay
+        online = next;
+        if (d.self) {
+          const v = vec(d.self.lat, d.self.lon);
+          if (!self) setTimeout(() => addArc(v), 1500); // hoş geldin yayı
+          self = { v };
+        }
+        first = false;
+      } catch {}
+    }
+    setTimeout(ping, 800); // önce dünya yüklensin
+    setInterval(ping, 30000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) ping(); });
   }
 
   function drawVisitors(t, dt) {
     if (!VIS) return;
     const c = T.visit, k = Math.max(0.8, R / 300);
-    // geçmiş: sabit noktalar (çok ziyaret → biraz daha büyük)
-    for (const h of visHistory) {
-      const p = project(...h.v);
-      if (p[2] <= 0.05) continue;
-      const a = Math.min(1, p[2] * 2.5), r = (1.8 + Math.log2(h.n) * 0.7) * k;
-      ctx.fillStyle = `rgba(${c},${0.16 * a})`;
-      ctx.beginPath(); ctx.arc(p[0], p[1], r * 3, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(${c},${0.9 * a})`;
-      ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill();
-    }
     // şu an sitede olanlar: sürekli nabız
     const pulseAt = (v, seed) => {
       const p = project(...v);
