@@ -1,0 +1,363 @@
+{
+  "_not": "Portfolyodaki tüm metinler buradan gelir.",
+  "name": "Recep Akyüz",
+  "handle": "recep",
+  "title": {
+    "tr": "DevOps / Platform Engineer",
+    "en": "DevOps / Platform Engineer"
+  },
+  "location": "Antalya, Türkiye",
+  "coords": [
+    36.9,
+    30.7
+  ],
+  "status": {
+    "tr": "Çalışmaya açık",
+    "en": "Open to work"
+  },
+  "lead": {
+    "tr": "Air-gapped ve edge ortamlarda Kubernetes platformları kurup işletiyorum. CI/CD, izleme ve loglama, depolama, yedekleme ve güvenlik; platformun production'da ayakta kalması için gereken her katmanla çalışıyorum.",
+    "en": "I build and operate Kubernetes platforms in air-gapped and edge environments. CI/CD, monitoring and logging, storage, backup and security: I work on every layer a platform needs to stay up in production."
+  },
+  "cv": "/static/recep-akyuz-cv.pdf",
+  "headlines": {
+    "tr": [
+      "Air-gapped ortamlarda <em>Kubernetes</em> platformları kuruyor ve işletiyorum.",
+      "Edge ortamlarda production <em>K3s</em> cluster'larını yönetiyorum.",
+      "<em>GitLab CI/CD</em> ile Kubernetes'e ve VM'lere otomatik deploy kuruyorum.",
+      "Uygulamaları <em>Helm</em> chart'ları olarak paketleyip production'a taşıyorum.",
+      "<em>Prometheus</em> ve Grafana ile altyapıyı izliyorum.",
+      "<em>Fluent Bit</em> ve OpenSearch ile merkezi log altyapısı kuruyorum.",
+      "<em>Velero</em> ve MinIO ile yedekleme ve felaket kurtarma kuruyorum.",
+      "<em>CloudNativePG</em> ile PostgreSQL'i Kubernetes üzerinde çalıştırıyor, DR senaryolarını test ediyorum.",
+      "<em>Rook-Ceph</em> ile 5 TB'ın üzerinde dağıtık depolama tasarladım.",
+      "İnternetsiz kurulumlar için imajları ve chart'ları <em>Harbor</em>'a aynalıyorum.",
+      "<em>Keycloak</em> ile servisler için merkezi kimlik doğrulama (SSO) kuruyorum.",
+      "<em>Wazuh</em> ve OpenSearch ile SIEM altyapısı kurup işletiyorum.",
+      "<em>Traefik</em> ve Nginx ile trafiği yönetiyor, Cert-Manager ile sertifikaları otomatikleştiriyorum.",
+      "<em>Cilium</em> ve MetalLB ile cluster ağını yapılandırıyorum.",
+      "<em>OpenStack</em> üzerinde Managed Kubernetes cluster'larıyla çalışıyorum.",
+      "Pentest bulgularını kapatıyor, platformu <em>sıkılaştırıyorum</em>.",
+      "Tekrarlanan operasyonel işleri <em>Bash</em> ile otomatikleştiriyorum."
+    ],
+    "en": [
+      "I build and run <em>Kubernetes</em> platforms in air-gapped environments.",
+      "I manage production <em>K3s</em> clusters at the edge.",
+      "I set up <em>GitLab CI/CD</em> that deploys automatically to Kubernetes and VMs.",
+      "I package applications as <em>Helm</em> charts and ship them to production.",
+      "I monitor infrastructure with <em>Prometheus</em> and Grafana.",
+      "I build centralized logging with <em>Fluent Bit</em> and OpenSearch.",
+      "I set up backup and disaster recovery with <em>Velero</em> and MinIO.",
+      "I run PostgreSQL on Kubernetes with <em>CloudNativePG</em> and test DR scenarios.",
+      "I designed more than 5 TB of distributed storage on <em>Rook-Ceph</em>.",
+      "I mirror images and charts to <em>Harbor</em> for offline installs.",
+      "I set up centralized authentication (SSO) for services with <em>Keycloak</em>.",
+      "I build and operate SIEM infrastructure with <em>Wazuh</em> and OpenSearch.",
+      "I route traffic with <em>Traefik</em> and Nginx and automate certificates with Cert-Manager.",
+      "I configure cluster networking with <em>Cilium</em> and MetalLB.",
+      "I work with Managed Kubernetes clusters on <em>OpenStack</em>.",
+      "I remediate pentest findings and <em>harden</em> the platform.",
+      "I automate repetitive operational work with <em>Bash</em>."
+    ]
+  },
+  "stats": [
+    {
+      "v": "Kubernetes",
+      "k": {
+        "tr": "K8s & K3s, production'da",
+        "en": "K8s & K3s in production"
+      }
+    },
+    {
+      "v": "CI/CD",
+      "k": {
+        "tr": "GitLab ile K8s + VM'e otomatik deploy",
+        "en": "GitLab, auto-deploy to K8s + VMs"
+      }
+    },
+    {
+      "v": "Air-gapped",
+      "k": {
+        "tr": "internetsiz, uçtan uca kurulum",
+        "en": "end-to-end, no internet"
+      }
+    },
+    {
+      "v": "Monitoring & Logging",
+      "k": {
+        "tr": "Prometheus, Grafana, Fluent Bit, OpenSearch",
+        "en": "Prometheus, Grafana, Fluent Bit, OpenSearch"
+      }
+    }
+  ],
+  "about": {
+    "tr": [
+      "Air-gapped ve edge ortamlarda Kubernetes platformları kuran ve işleten bir Platform/DevOps mühendisiyim. ASELSAN için geliştirilen taktik bulut altyapısını on-prem, internetsiz ortamda kurdum; K3s ve OpenStack üzerinde Managed Kubernetes ile çalıştım.",
+      "Depolama, imaj registry, merkezi kimlik doğrulama ve felaket kurtarmayı Rook-Ceph, Harbor, Keycloak ve Velero/MinIO ile yönetiyorum. Pentest bulgularının kapatılması, sıkılaştırma ve runtime tehdit tespiti gibi güvenlik işlerini yürüttüm; Wazuh/OpenSearch tabanlı SIEM altyapısını işlettim.",
+      "Kubernetes'e ve VM'lere otomatik deploy eden GitLab CI/CD pipeline'ları kuruyorum; SonarQube kod analizi pipeline'ın bir parçası."
+    ],
+    "en": [
+      "Platform/DevOps engineer building and operating Kubernetes platforms in air-gapped and edge environments. Deployed the on-prem tactical cloud infrastructure for ASELSAN and worked with K3s and Managed Kubernetes on OpenStack.",
+      "I manage storage, image registry, centralized authentication and disaster recovery with Rook-Ceph, Harbor, Keycloak and Velero/MinIO. Led security work including pentest remediation, hardening and runtime threat detection, and operated a Wazuh/OpenSearch-based SIEM.",
+      "I build GitLab CI/CD pipelines that deploy automatically to Kubernetes and VMs, with SonarQube code analysis built in."
+    ]
+  },
+  "certs": [
+    "A'dan Z'ye Docker — Udemy (2025)",
+    "AWS Fundamentals / Architecting Solutions on AWS — AWS · Coursera (2024)",
+    "Linux Commands & Shell Scripting — IBM (2024)",
+    "Microsoft Azure Fundamentals (AZ-900 hazırlık) — Microsoft · Coursera (2024)",
+    "Cloud Computing & AWS Solutions Architecture — Udemy (2024)",
+    "Network Fundamentals — Turkcell Geleceği Yazanlar (2024)"
+  ],
+  "experience": [
+    {
+      "role": {
+        "tr": "Platform Engineer & DevOps",
+        "en": "Platform Engineer & DevOps"
+      },
+      "company": "DT Cloud",
+      "period": {
+        "tr": "Şub 2025 — Eyl 2026 · Antalya, remote",
+        "en": "Feb 2025 — Sep 2026 · Antalya, remote"
+      },
+      "points": {
+        "tr": [
+          "ASELSAN için taktik bulut altyapısını on-prem, air-gapped ortamda kurdu ve sıkılaştırdı.",
+          "Edge production ortamlarında K3s cluster'ları işletti; internetsiz ortamlar için offline kurulum ve provisioning otomasyonu yazdı.",
+          "5+ TB Rook-Ceph depolama tasarladı; Velero/MinIO ile yedekleme ve DR kurdu.",
+          "Pentest bulgularının kapatılmasına ve platform genelinde sıkılaştırmaya liderlik etti.",
+          "50+ servis için offline Keycloak ile merkezi SSO kurdu.",
+          "Kubernetes üzerinde Wazuh/OpenSearch SIEM kurup işletti; 8.900+ özel kuralla tespit kapsamını genişletti, TLS/sertifika yaşam döngüsünü yönetti.",
+          "Edge Platform dev, release ve production ortamlarını kurup production'a deploy etti; offline kurulum için 24 Helm chart ve 105 imajı Harbor'a mirrorladı.",
+          "Marketplace için managed-service Helm paketleri hazırladı (PostgreSQL, KubeVirt VM'leri, Wazuh).",
+          "Kubernetes ve VM'lere otomatik deploy eden GitLab CI/CD ile SonarQube'lü test pipeline'ları kurdu; LLM Benchmark platformunun CI/CD ve deploy altyapısını hazırladı."
+        ],
+        "en": [
+          "Deployed and hardened ASELSAN's tactical cloud infrastructure in an on-prem, air-gapped environment.",
+          "Ran K3s clusters in edge production; built offline installation and provisioning automation for internet-less environments.",
+          "Designed 5+ TB Rook-Ceph storage; set up backup and DR with Velero/MinIO.",
+          "Led pentest remediation and platform-wide hardening.",
+          "Deployed offline Keycloak for centralized SSO across 50+ services.",
+          "Deployed and operated Wazuh/OpenSearch SIEM on Kubernetes; expanded detection with 8,900+ custom rules and managed the TLS/certificate lifecycle.",
+          "Built the Edge Platform's dev, release and production environments and deployed to production; mirrored 24 Helm charts and 105 images to Harbor for offline installs.",
+          "Prepared managed-service Helm packages for the marketplace (PostgreSQL, KubeVirt VMs, Wazuh).",
+          "Built GitLab CI/CD deploying to Kubernetes and VMs plus SonarQube test pipelines; built the CI/CD and deployment infrastructure for the LLM Benchmark platform."
+        ]
+      }
+    },
+    {
+      "role": {
+        "tr": "Yönetim Bilişim Sistemleri, lisans",
+        "en": "B.Sc. Management Information Systems"
+      },
+      "company": "Akdeniz Üniversitesi",
+      "period": {
+        "tr": "Eyl 2021 — Haz 2025",
+        "en": "Sep 2021 — Jun 2025"
+      },
+      "points": {
+        "tr": [],
+        "en": []
+      }
+    }
+  ],
+  "projects": [
+    {
+      "name": {
+        "tr": "Taktik bulut (air-gapped)",
+        "en": "Tactical cloud (air-gapped)"
+      },
+      "url": "",
+      "desc": {
+        "tr": "ASELSAN için on-prem, internetsiz ortamda Kubernetes tabanlı bulut altyapısı: offline kurulum, Rook-Ceph, Velero/MinIO DR, Keycloak SSO.",
+        "en": "Kubernetes-based cloud for ASELSAN, on-prem with no internet: offline install, Rook-Ceph, Velero/MinIO DR, Keycloak SSO."
+      },
+      "tags": [
+        "k3s",
+        "rook-ceph",
+        "velero",
+        "keycloak"
+      ]
+    },
+    {
+      "name": {
+        "tr": "SIEM altyapısı",
+        "en": "SIEM platform"
+      },
+      "url": "",
+      "desc": {
+        "tr": "Kubernetes üzerinde Wazuh/OpenSearch; 8.900+ özel tespit kuralı, sertifika yaşam döngüsü yönetimi.",
+        "en": "Wazuh/OpenSearch on Kubernetes; 8,900+ custom detection rules, certificate lifecycle management."
+      },
+      "tags": [
+        "wazuh",
+        "opensearch",
+        "kafka",
+        "fluent-bit"
+      ]
+    },
+    {
+      "name": "Edge Platform",
+      "url": "",
+      "desc": {
+        "tr": "Dev, release ve production ortamlarını kurup production'a deploy ettim; Harbor'a offline mirror (24 chart, 105 imaj) ve marketplace için managed-service Helm paketleri.",
+        "en": "Built the dev, release and production environments and shipped to production; offline Harbor mirror (24 charts, 105 images) and managed-service Helm packages for the marketplace."
+      },
+      "tags": [
+        "kubernetes",
+        "ci/cd",
+        "harbor",
+        "helm",
+        "kubevirt"
+      ]
+    },
+    {
+      "name": {
+        "tr": "PostgreSQL DR (CNPG)",
+        "en": "PostgreSQL DR (CNPG)"
+      },
+      "url": "",
+      "desc": {
+        "tr": "CloudNativePG ile Kubernetes üzerinde PostgreSQL; felaket kurtarma senaryosu uçtan uca koşuldu.",
+        "en": "PostgreSQL on Kubernetes with CloudNativePG; disaster recovery scenario run end to end."
+      },
+      "tags": [
+        "cnpg",
+        "postgresql",
+        "dr"
+      ]
+    },
+    {
+      "name": "ssh.recepakyuz.dev",
+      "url": "https://ssh.recepakyuz.dev",
+      "desc": {
+        "tr": "Sunuculara SSH anahtarını tek komutla dağıtan küçük servis.",
+        "en": "Tiny service that hands out SSH keys to servers with one command."
+      },
+      "tags": [
+        "go",
+        "shell"
+      ]
+    }
+  ],
+  "stack": [
+    {
+      "k": {
+        "tr": "kubernetes",
+        "en": "kubernetes"
+      },
+      "v": [
+        "K8s",
+        "K3s",
+        "Helm",
+        "Docker",
+        "KubeVirt",
+        "Traefik",
+        "Nginx",
+        "MetalLB",
+        "Cilium",
+        "Cert-Manager",
+        "Harbor"
+      ]
+    },
+    {
+      "k": {
+        "tr": "veritabanı",
+        "en": "database"
+      },
+      "v": [
+        "PostgreSQL",
+        "CloudNativePG (CNPG)"
+      ]
+    },
+    {
+      "k": {
+        "tr": "depolama & dr",
+        "en": "storage & dr"
+      },
+      "v": [
+        "Rook-Ceph",
+        "Velero",
+        "MinIO",
+        "Cinder-CSI"
+      ]
+    },
+    {
+      "k": {
+        "tr": "ci/cd",
+        "en": "ci/cd"
+      },
+      "v": [
+        "GitLab CI/CD",
+        "SonarQube",
+        "Bash",
+        "YAML"
+      ]
+    },
+    {
+      "k": {
+        "tr": "siem & gözlem",
+        "en": "siem & observability"
+      },
+      "v": [
+        "Wazuh",
+        "OpenSearch",
+        "Kafka",
+        "Fluent Bit",
+        "Prometheus",
+        "Grafana"
+      ]
+    },
+    {
+      "k": {
+        "tr": "kimlik",
+        "en": "identity"
+      },
+      "v": [
+        "Keycloak (SSO/SAML)",
+        "OpenLDAP"
+      ]
+    },
+    {
+      "k": {
+        "tr": "bulut & altyapı",
+        "en": "cloud & infra"
+      },
+      "v": [
+        "OpenStack",
+        "Linux",
+        "Networking",
+        "AWS · Azure · GCP (temel)"
+      ]
+    }
+  ],
+  "now": {
+    "tr": [
+      "CloudNativePG ile PostgreSQL üzerinde felaket kurtarma senaryoları.",
+      "Çalışmaya açığım."
+    ],
+    "en": [
+      "Disaster recovery scenarios for PostgreSQL with CloudNativePG.",
+      "Open to work."
+    ]
+  },
+  "links": [
+    {
+      "label": "email",
+      "url": "mailto:akyuzrecep51@gmail.com"
+    },
+    {
+      "label": "linkedin",
+      "url": "https://linkedin.com/in/akyuzrecep"
+    },
+    {
+      "label": "github",
+      "url": "https://github.com/akyuzrecep"
+    },
+    {
+      "label": "ssh",
+      "url": "https://ssh.recepakyuz.dev"
+    }
+  ]
+}

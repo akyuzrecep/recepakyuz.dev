@@ -1,0 +1,19 @@
+[Unit]
+Description=recepakyuz.dev + ssh.recepakyuz.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/recep/website
+# Yalnızca localhost'u dinler; dışarıya nginx açar.
+ExecStart=/home/ubuntu/recep/website/bin/site -addr 127.0.0.1:8787 -keys /home/ubuntu/recep/website/keys
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

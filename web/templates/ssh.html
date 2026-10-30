@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSH erişimi — {{.Host}}</title>
+<meta name="description" content="Recep Akyüz'ün SSH public key'lerini tek komutla authorized_keys dosyasına ekle.">
+<script>try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .keys { list-style: none; padding: 0; margin: 6px 0 14px; }
+  .keys li { display: flex; gap: 12px; padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .keys li:last-child { border-bottom: 0; }
+  .keys .kt { color: var(--accent); min-width: 96px; }
+  .section { margin-top: 20px; }
+  .section h2 { font-size: 13px; color: var(--text); }
+  .section h2::before { content: "## "; color: var(--faint); }
+  .note { color: var(--muted); font-size: 12.5px; margin: 6px 0 2px; }
+  .sub { color: var(--faint); font-size: 12px; margin-top: 12px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 2px 14px; padding: 6px 0 8px; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .locs a { margin-right: 10px; }
+  .locs a.cur { color: var(--text); }
+</style>
+</head>
+<body>
+<canvas id="globe" data-home="36.90,30.70" aria-hidden="true"></canvas>
+<p class="headline" data-i18n="headline">Sunucuna erişim vermek için <em>tek komut</em> yeterli.</p>
+
+<main class="shell">
+  <div class="titlebar">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="title">ssh-access@{{.Loc}} — {{.Host}}{{.Path}}</span>
+    <span class="tools-bar" style="display:flex;gap:6px;align-items:center">
+      <span class="seg" role="group" aria-label="Dil"><button data-lang="tr">TR</button><button data-lang="en">EN</button></span>
+      <button class="btn icon" id="theme" aria-label="Tema"></button>
+      <button class="btn" id="copyKeys"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1 1 0 0 1 4 2.5h6.5"/></svg>pubKey</button>
+    </span>
+  </div>
+
+  <div class="body">
+    <p class="line prompt"><b>recep@{{.Host}}</b>:<span class="path">~/.ssh</span>$ <span class="cmd">cat authorized_keys</span></p>
+    <ul class="keys">
+      {{range .Keys}}<li><span class="kt">{{.Type}}</span><span>{{if .Comment}}{{.Comment}}{{else}}<span class="faint">—</span>{{end}}</span></li>{{end}}
+    </ul>
+    <p class="note" data-i18n="lead">Bu public key'leri sunucunun <code>authorized_keys</code> dosyasına ekleyerek bana SSH erişimi verebilirsin. Komutlar var olan satırlara dokunmaz.</p>
+
+    <div class="section">
+      <h2 data-i18n="fast">Hızlı kurulum</h2>
+      <p class="note" data-i18n="fastBash">Linux / macOS: <code>~/.ssh</code> dizinini oluşturur, her anahtarı yalnızca yoksa ekler ve izinleri ayarlar. KVM veya web konsolunda elle yazılacak kadar kısa.</p>
+      <div class="code" data-cmd="sh"></div>
+      <p class="note" data-i18n="fastPs">Windows PowerShell: <code>$HOME\.ssh\authorized_keys</code> dosyasına ekler. Yönetici olarak çalıştırılırsa <code>administrators_authorized_keys</code> dosyasına da yazar ve ACL'i düzeltir.</p>
+      <div class="code" data-cmd="ps"></div>
+      <p class="note" data-i18n="fastCmd">Windows cmd: aynı PowerShell betiğini geçici dosya oluşturmadan çalıştırır.</p>
+      <div class="code" data-cmd="cmd"></div>
+    </div>
+
+    <div class="section">
+      <h2 data-i18n="verify">Doğrula</h2>
+      <div class="code" data-cmd="verify"></div>
+      <div class="code" data-cmd="verifyPs"></div>
+    </div>
+
+    <div class="section">
+      <h2 data-i18n="manual">Elle kurulum</h2>
+      <p class="note" data-i18n="manualNote">Tarayıcı dışındaki her istemci bu adresten düz metin anahtar listesi alır. Bu komutlar dosyaya ekleme yapar; iki kez çalıştırılırsa satırlar tekrarlanır. Tekrar kurulum için hızlı yöntemi kullan.</p>
+      <div class="tools" role="tablist" id="tools"></div>
+      <p class="sub" data-i18n="oneLiner">tek satır</p>
+      <div class="code" id="one"></div>
+      <p class="sub" data-i18n="full">tam kurulum</p>
+      <div class="code" id="full"></div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span class="live">{{.Host}}</span>
+    <span class="locs"><span data-i18n="locations">konumlar</span>: {{range .Locations}}{{if eq . "main"}}<a href="/" {{if eq $.Loc "main"}}class="cur"{{end}}>main</a>{{else}}<a href="/{{.}}" {{if eq $.Loc .}}class="cur"{{end}}>{{.}}</a>{{end}}{{end}}</span>
+    <a href="/" id="home" data-i18n="portfolio">← portfolyo</a>
+  </div>
+</main>
+
+<script>
+(() => {
+  const BASE = {{.Base}}, PATH = {{.Path}}, HOST = {{.Host}}, PORT = {{.Port}}, TLS = {{.TLS}};
+  const KEYS = {{.KeysText}};
+  const IDS = [{{range $i, $k := .Keys}}{{if $i}},{{end}}{{$k.ID}}{{end}}];
+  const SRC = BASE + PATH;
+  const short = BASE.replace(/^https:\/\//, "");
+  const F = "~/.ssh/authorized_keys";
+
+  const cmds = {
+    sh: ["$", `curl -fsSL ${short}/sh${PATH} | sh`],
+    ps: ["PS>", `irm ${BASE}/ps${PATH} | iex`],
+    cmd: ["C:\\>", `powershell -NoP -Ep Bypass -c "irm ${BASE}/ps${PATH}|iex"`],
+    verify: ["$", IDS.map((id) => `grep -qF '${id}' ${F}`).join(" && ") + ` && echo "OK"`],
+    verifyPs: ["PS>", `Select-String -SimpleMatch ${IDS.map((id) => `'${id}'`).join(",")} ~\\.ssh\\authorized_keys`],
+  };
+
+  const raw = TLS
+    ? `printf "GET ${PATH || "/"} HTTP/1.1\\r\\nHost: ${HOST}\\r\\nConnection: close\\r\\n\\r\\n" | openssl s_client -connect ${HOST}:${PORT} -quiet 2>/dev/null | grep -E '^(ssh-|ecdsa-|sk-)'`
+    : `printf "GET ${PATH || "/"} HTTP/1.1\\r\\nHost: ${HOST}\\r\\nConnection: close\\r\\n\\r\\n" | nc ${HOST} ${PORT} | grep -E '^(ssh-|ecdsa-|sk-)'`;
+  const tools = {
+    curl: `curl -fsSL ${SRC}`,
+    wget: `wget -qO- ${SRC}`,
+    [TLS ? "openssl" : "nc"]: raw,
+    python: `python3 -c "import urllib.request as u; print(u.urlopen('${SRC}').read().decode().strip())"`,
+    go: `go run <(echo 'package main;import("io";"net/http";"os");func main(){r,_:=http.Get("${SRC}");defer r.Body.Close();io.Copy(os.Stdout,r.Body)}')`,
+    php: `php -r "echo file_get_contents('${SRC}');"`,
+    perl: `perl -MLWP::Simple -e "getprint '${SRC}'"`,
+    powershell: null,
+  };
+
+  const COPY_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1 1 0 0 1 4 2.5h6.5"/></svg>';
+  const CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3.5 8.5 3 3 6-7"/></svg>';
+
+  function code(el, prompt, text) {
+    el.innerHTML = "";
+    const p = document.createElement("span"); p.className = "p"; p.textContent = prompt + " ";
+    const t = document.createElement("span"); t.textContent = text;
+    const b = document.createElement("button"); b.className = "btn copy"; b.innerHTML = COPY_ICON;
+    b.setAttribute("aria-label", "kopyala");
+    b.onclick = () => copy(text, b);
+    el.append(p, t, b);
+  }
+  async function copy(text, btn) {
+    try { await navigator.clipboard.writeText(text); } catch { return; }
+    const old = btn.innerHTML;
+    btn.classList.add("on");
+    if (btn.classList.contains("copy")) btn.innerHTML = CHECK_ICON;
+    setTimeout(() => { btn.innerHTML = old; btn.classList.remove("on"); }, 1200);
+  }
+
+  document.querySelectorAll("[data-cmd]").forEach((el) => code(el, ...cmds[el.dataset.cmd]));
+  document.getElementById("copyKeys").onclick = (e) => copy(KEYS, e.currentTarget);
+
+  const tabs = document.getElementById("tools");
+  function show(name) {
+    tabs.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", b.dataset.t === name));
+    if (name === "powershell") {
+      code(document.getElementById("one"), "PS>", `(iwr ${SRC} -UseBasicParsing).Content.Trim() | Add-Content ~\\.ssh\\authorized_keys`);
+      code(document.getElementById("full"), "PS>", `New-Item -ItemType Directory -Force ~\\.ssh | Out-Null; (iwr ${SRC} -UseBasicParsing).Content.Trim() | Add-Content ~\\.ssh\\authorized_keys`);
+      return;
+    }
+    code(document.getElementById("one"), "$", `${tools[name]} >> ${F}`);
+    code(document.getElementById("full"), "$", `mkdir -p ~/.ssh && chmod 700 ~/.ssh && ${tools[name]} >> ${F} && chmod 600 ${F}`);
+  }
+  Object.keys(tools).forEach((name) => {
+    const b = document.createElement("button");
+    b.className = "tab"; b.dataset.t = name; b.textContent = name; b.setAttribute("role", "tab");
+    b.onclick = () => { show(name); history.replaceState(null, "", "#" + name); };
+    tabs.append(b);
+  });
+  show(tools[location.hash.slice(1)] !== undefined ? location.hash.slice(1) : "curl");
+
+  // portfolyo linkleri: ssh. önekini at
+  const home = BASE.replace("://ssh.", "://") + "/";
+  document.getElementById("home").href = home;
+
+  // ---- TR / EN ----
+  const EN = {
+    headline: "One command is all it takes to <em>grant access</em> to your server.",
+    lead: "Add these public keys to your server's <code>authorized_keys</code> file to give me SSH access. The commands never touch existing lines.",
+    fast: "Quick setup",
+    fastBash: "Linux / macOS: creates <code>~/.ssh</code>, adds each key only if it's missing and sets permissions. Short enough to type by hand in a KVM or web console.",
+    fastPs: "Windows PowerShell: appends to <code>$HOME\\.ssh\\authorized_keys</code>. Run as administrator and it also writes <code>administrators_authorized_keys</code> and fixes its ACL.",
+    fastCmd: "Windows cmd: runs the same PowerShell script without a temp file.",
+    verify: "Verify",
+    manual: "Manual setup",
+    manualNote: "Any non-browser client gets the plain key list from this URL. These commands append to the file; running them twice duplicates lines. Use the quick setup for re-runs.",
+    oneLiner: "one-liner",
+    full: "full setup",
+    locations: "locations",
+    portfolio: "← portfolio",
+  };
+  const TR = {};
+  document.querySelectorAll("[data-i18n]").forEach((el) => (TR[el.dataset.i18n] = el.innerHTML));
+  let lang = "tr";
+  try { lang = localStorage.getItem("lang") || (navigator.language.startsWith("tr") ? "tr" : "en"); } catch {}
+  function apply() {
+    const d = lang === "en" ? EN : TR;
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => (el.innerHTML = d[el.dataset.i18n]));
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+    updateThemeButton();
+  }
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => {
+    lang = b.dataset.lang;
+    try { localStorage.setItem("lang", lang); } catch {}
+    apply();
+  }));
+
+  // ---- tema ----
+  const SUN = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></svg>';
+  const MOON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"/></svg>';
+  const prefersLight = matchMedia("(prefers-color-scheme: light)");
+  const effective = () => document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
+  function updateThemeButton() {
+    const b = document.getElementById("theme"), cur = effective();
+    b.innerHTML = cur === "dark" ? SUN : MOON;
+    const label = lang === "en" ? (cur === "dark" ? "Switch to light theme" : "Switch to dark theme") : (cur === "dark" ? "Açık temaya geç" : "Koyu temaya geç");
+    b.setAttribute("aria-label", label); b.title = label;
+  }
+  document.getElementById("theme").onclick = () => {
+    const next = effective() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch {}
+    updateThemeButton();
+  };
+  prefersLight.addEventListener("change", updateThemeButton);
+
+  apply();
+})();
+</script>
+<script src="/static/globe.js" defer></script>
+</body>
+</html>

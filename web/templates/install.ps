@@ -1,0 +1,33 @@
+# {{.Host}}{{.Path}} - SSH anahtarlarini authorized_keys dosyasina ekler.
+# Yonetici PowerShell'de calisirsa administrators_authorized_keys'e de yazar ve ACL'i duzeltir.
+$ErrorActionPreference = 'Stop'
+$keys = @'
+{{.KeysText}}'@ -split "`r?`n" | Where-Object { $_ -match '^\S+ \S+' }
+
+function Add-Keys([string]$file) {
+  $dir = Split-Path $file
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  if (-not (Test-Path $file)) { New-Item -ItemType File -Path $file -Force | Out-Null }
+  $existing = Get-Content -Raw -Path $file
+  if ($null -eq $existing) { $existing = '' }
+  if ($existing.Length -gt 0 -and -not $existing.EndsWith("`n")) { Add-Content -Path $file -Value '' -Encoding ascii }
+  $added = 0
+  foreach ($k in $keys) {
+    $body = ($k -split ' ')[1]
+    if (-not $existing.Contains($body)) {
+      Add-Content -Path $file -Value $k -Encoding ascii
+      $added++
+    }
+  }
+  Write-Host "OK $file : $added anahtar eklendi"
+}
+
+Add-Keys (Join-Path $HOME '.ssh\authorized_keys')
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if ($isAdmin) {
+  $adminFile = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
+  Add-Keys $adminFile
+  icacls $adminFile /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F' | Out-Null
+  Write-Host "OK ACL: yalnizca SYSTEM + Administrators"
+}

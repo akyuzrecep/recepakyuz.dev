@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recep Akyüz — DevOps / Platform Engineer</title>
+<meta name="description" content="Recep Akyüz — air-gapped ve edge ortamlarda Kubernetes platformları kuran DevOps / Platform Engineer.">
+<script>try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<canvas id="globe" aria-hidden="true"></canvas>
+<p class="headline" id="headline"></p>
+
+<main class="shell" id="shell">
+  <div class="titlebar">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="title" id="wtitle">recepakyuz.dev — zsh</span>
+    <span class="tools">
+      <span class="seg" role="group" aria-label="Dil"><button data-lang="tr">TR</button><button data-lang="en">EN</button></span>
+      <button class="btn icon" id="theme" aria-label="Tema"></button>
+      <a class="btn" id="cvTop" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11 11 5M6 5h5v5"/></svg>CV</a>
+    </span>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <div class="body" id="view" aria-live="polite"></div>
+  <form class="repl" id="repl" autocomplete="off">
+    <label class="prompt" for="cmd"><b id="pu">recep</b>:<span class="path">~</span>$</label>
+    <input id="cmd" spellcheck="false" placeholder="help">
+  </form>
+  <div class="statusbar">
+    <span class="live" id="live"></span>
+    <span id="clock"></span>
+    <span id="loc"></span>
+    <span id="keys"></span>
+  </div>
+</main>
+<p class="hint-away" id="hintAway"></p>
+
+<script>
+(async () => {
+  const C = await (await fetch("/static/content.json")).json();
+  const $ = (id) => document.getElementById(id);
+  const view = $("view"), input = $("cmd");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const sshURL = location.protocol + "//ssh." + location.host;
+
+  let lang = "tr";
+  try { lang = localStorage.getItem("lang") || (navigator.language.startsWith("tr") ? "tr" : "en"); } catch {}
+  const t = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v[lang] ?? v.tr : v);
+
+  const UI = {
+    tr: {
+      tabs: ["ana", "hakkımda", "deneyim", "projeler", "yetkinlikler", "şu an", "iletişim"],
+      live: "canlı", keys: "1-7 sekme · / komut · esc dünya", away: "dünyayı izliyorsun — esc ile geri dön",
+      cv: "CV'yi görüntüle", ssh: "ssh anahtarlarım", notfound: "komut bulunamadı", tryHelp: "'help' yaz",
+      boot: "sistem ayakta", modules: "modül yüklendi", sudo: "bu olay rapor edilecek.",
+      theme: { dark: "Açık temaya geç", light: "Koyu temaya geç" },
+      cmds: {
+        help: "bu liste", ls: "sekmeleri listele", "cd <sekme|1-7>": "sekmeye git", whoami: "ben kimim",
+        cv: "CV'yi yeni sekmede aç", mail: "e-posta gönder", ssh: "ssh anahtar sayfası", "theme [light|dark]": "temayı değiştir",
+        "lang [tr|en]": "dili değiştir", date: "saat kaç", clear: "ekranı temizle", exit: "dünyayı izle",
+      },
+    },
+    en: {
+      tabs: ["home", "about", "experience", "projects", "skills", "now", "contact"],
+      live: "live", keys: "1-7 tabs · / command · esc globe", away: "watching the world — esc to come back",
+      cv: "view CV", ssh: "my ssh keys", notfound: "command not found", tryHelp: "try 'help'",
+      boot: "system up", modules: "modules loaded", sudo: "this incident will be reported.",
+      theme: { dark: "Switch to light theme", light: "Switch to dark theme" },
+      cmds: {
+        help: "this list", ls: "list tabs", "cd <tab|1-7>": "go to tab", whoami: "who am i",
+        cv: "open the CV in a new tab", mail: "send an email", ssh: "ssh key page", "theme [light|dark]": "switch theme",
+        "lang [tr|en]": "switch language", date: "what time is it", clear: "clear screen", exit: "watch the globe",
+      },
+    },
+  };
+  const L = () => UI[lang];
+  const SLUGS = ["home", "about", "experience", "projects", "skills", "now", "contact"];
+  const linkOf = (label) => C.links.find((x) => x.label === label)?.url;
+  const ICON = {
+    sun: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></svg>',
+    moon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"/></svg>',
+  };
+
+  // ---- küçük DOM yardımcıları ----
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function link(label, url, cls) {
+    const a = el("a", cls, label);
+    a.href = url;
+    if (/^https?:/.test(url) && !url.startsWith(location.origin)) { a.target = "_blank"; a.rel = "noopener"; }
+    if (url === C.cv) { a.target = "_blank"; a.rel = "noopener"; }
+    return a;
+  }
+  function promptLine(cmd) {
+    const p = el("p", "line prompt");
+    p.innerHTML = `<b>${C.handle}</b>:<span class="path">~</span>$ `;
+    const c = el("span", "cmd", "");
+    p.append(c);
+    view.append(p);
+    return { c, cmd };
+  }
+  async function type(pl) {
+    if (reduced) { pl.c.textContent = pl.cmd; return; }
+    for (let i = 1; i <= pl.cmd.length; i++) {
+      pl.c.textContent = pl.cmd.slice(0, i);
+      await new Promise((r) => setTimeout(r, 14));
+    }
+  }
+  function block(...children) {
+    const b = el("div", "block");
+    b.append(...children.filter(Boolean));
+    view.append(b);
+    return b;
+  }
+
+  // ---- sekmeler ----
+  const renderers = {
+    home() {
+      const nm = el("div", "name", C.name);
+      const kv = el("dl", "kv");
+      for (const [k, v] of [["title", t(C.title)], ["loc", C.location], ["status", t(C.status)]]) {
+        kv.append(el("dt", null, k), el("dd", null, v));
+      }
+      const lead = el("p", "line muted", t(C.lead));
+      lead.style.marginTop = "10px";
+      const st = el("div", "stats");
+      C.stats.forEach((s) => { const d = el("div", "stat"); d.append(el("b", null, s.v), el("span", null, t(s.k))); st.append(d); });
+      const cta = el("div", "cta");
+      cta.append(link("↗ " + L().cv, C.cv, "primary"), link("✉ mail", linkOf("email")), link("in linkedin", linkOf("linkedin")), link("→ " + L().ssh, sshURL));
+      return [["whoami", [nm, kv, lead]], ["stat --quick", [st]], ["ls ./links", [cta]]];
+    },
+    about() {
+      const ps = t(C.about).map((p) => el("p", "line", p));
+      ps.slice(1).forEach((p) => { p.classList.add("muted"); p.style.marginTop = "10px"; });
+      const ul = el("ul", "list");
+      C.certs.forEach((c) => ul.append(el("li", null, c)));
+      return [["cat about.md", ps], ["ls ~/certs", [ul]]];
+    },
+    experience() {
+      const items = C.experience.map((x) => {
+        const d = el("div", "item"), top = el("div", "top");
+        const left = el("span"); left.append(el("span", "accent", t(x.role)), el("span", "faint", " @ "), el("span", null, x.company));
+        top.append(left, el("span", "faint", t(x.period)));
+        d.append(top);
+        if (t(x.points).length) { const ul = el("ul"); t(x.points).forEach((p) => ul.append(el("li", null, p))); d.append(ul); }
+        return d;
+      });
+      return [["git log --career", items]];
+    },
+    projects() {
+      const items = C.projects.map((p) => {
+        const d = el("div", "item"), top = el("div", "top");
+        top.append(p.url ? link(t(p.name), p.url) : el("span", "accent", t(p.name)));
+        const tags = el("span"); p.tags.forEach((g) => tags.append(el("span", "tag", "#" + g)));
+        top.append(tags);
+        d.append(top, el("p", null, t(p.desc)));
+        return d;
+      });
+      return [["ls ~/projects", items]];
+    },
+    skills() {
+      const kv = el("dl", "kv");
+      C.stack.forEach((s) => kv.append(el("dt", null, t(s.k)), el("dd", null, s.v.join(" · "))));
+      kv.style.rowGap = "6px";
+      return [["cat stack.yml", [kv]]];
+    },
+    now() {
+      const ul = el("ul", "list");
+      t(C.now).forEach((s) => ul.append(el("li", null, s)));
+      return [["cat now.txt", [ul]]];
+    },
+    contact() {
+      const kv = el("dl", "kv");
+      C.links.forEach((l) => { const d = el("dd"); d.append(link(l.url.replace(/^mailto:|^https?:\/\//, ""), l.url)); kv.append(el("dt", null, l.label), d); });
+      const d = el("dd"); d.append(link("recep-akyuz-cv.pdf", C.cv)); kv.append(el("dt", null, "cv"), d);
+      return [["cat contact.vcf", [kv]], ["curl " + location.host, [el("p", "line faint", lang === "tr" ? "terminalden de bakabilirsin ↑" : "works from a terminal too ↑")]]];
+    },
+  };
+
+  let current = "home", token = 0;
+  async function go(slug, opts = {}) {
+    if (!renderers[slug]) return;
+    current = slug;
+    const my = ++token;
+    document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", b.dataset.t === slug));
+    if (!opts.keepHash) history.replaceState(null, "", slug === "home" ? location.pathname : "#" + slug);
+    view.innerHTML = "";
+    if (opts.boot) {
+      const pl = promptLine("./boot --globe");
+      await type(pl);
+      if (my !== token) return;
+      const ok = el("p", "line");
+      ok.innerHTML = `<span class="ok">[OK]</span> <span class="muted">${L().boot} · ${Math.round(performance.now())}ms · 7 ${L().modules}</span>`;
+      block(ok);
+    }
+    for (const [cmd, nodes] of renderers[slug]()) {
+      const pl = promptLine(cmd);
+      await type(pl);
+      if (my !== token) return;
+      block(...nodes);
+    }
+  }
+
+  // ---- komut satırı ----
+  function out(...nodes) { block(...nodes); input.scrollIntoView({ block: "nearest" }); }
+  const commands = {
+    help() {
+      const kv = el("dl", "kv");
+      Object.entries(L().cmds).forEach(([k, v]) => kv.append(el("dt", "accent", k), el("dd", "muted", v)));
+      out(kv);
+    },
+    ls() { out(el("p", "line", L().tabs.map((n, i) => `[${i + 1}] ${n}`).join("   "))); },
+    cd(arg) {
+      if (!arg || arg === "~") return go("home");
+      const i = /^\d$/.test(arg) ? +arg - 1 : [...UI.tr.tabs, ...UI.en.tabs, ...SLUGS].indexOf(arg) % SLUGS.length;
+      if (i < 0 || !SLUGS[i]) return out(el("p", "line warn", `cd: ${arg}: ${lang === "tr" ? "böyle bir dizin yok" : "no such directory"}`));
+      go(SLUGS[i]);
+    },
+    whoami() { out(el("p", "line", `${C.name} — ${t(C.title)} · ${C.location}`)); },
+    cv() { window.open(C.cv, "_blank", "noopener"); out(el("p", "line ok", "↗ recep-akyuz-cv.pdf")); },
+    mail() { location.href = linkOf("email"); },
+    ssh() { location.href = sshURL; },
+    theme(arg) { setTheme(arg === "light" || arg === "dark" ? arg : effectiveTheme() === "dark" ? "light" : "dark"); },
+    lang(arg) { setLang(arg === "en" || arg === "tr" ? arg : lang === "tr" ? "en" : "tr"); },
+    date() { out(el("p", "line", new Date().toString())); },
+    clear() { view.innerHTML = ""; },
+    exit() { setAway(true); },
+    sudo() { out(el("p", "line warn", `${C.handle} is not in the sudoers file. ${L().sudo}`)); },
+  };
+  commands.open = commands.cat = commands.cd;
+  $("repl").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = input.value.trim();
+    input.value = "";
+    if (!raw) return;
+    token++; // süren yazma animasyonunu durdur
+    const [name, ...args] = raw.split(/\s+/);
+    const pl = promptLine(raw); pl.c.textContent = raw;
+    const fn = commands[name.toLowerCase()];
+    if (fn) fn(args.join(" ").toLowerCase());
+    else out(el("p", "line warn", `zsh: ${L().notfound}: ${name} — ${L().tryHelp}`));
+  });
+
+  // ---- dünyanın üstündeki cümleler ----
+  let hlIndex = 0, hlTimer = null;
+  function rotateHeadline(reset) {
+    const list = t(C.headlines), h = $("headline");
+    clearTimeout(hlTimer);
+    if (reset) { hlIndex = 0; h.innerHTML = list[0]; } // content.json'dan, güvenilir kaynak
+    hlTimer = setTimeout(() => {
+      hlIndex = (hlIndex + 1) % list.length;
+      if (reduced) { h.innerHTML = list[hlIndex]; return rotateHeadline(); }
+      h.classList.add("out");
+      setTimeout(() => { h.innerHTML = list[hlIndex]; h.classList.remove("out"); rotateHeadline(); }, 500);
+    }, 5000);
+  }
+
+  // ---- dil / sekmeler ----
+  function buildTabs() {
+    $("tabs").replaceChildren(...SLUGS.map((slug, i) => {
+      const b = el("button", "tab");
+      b.dataset.t = slug; b.setAttribute("role", "tab");
+      b.innerHTML = `<span class="n">[0${i + 1}]</span> `;
+      b.append(L().tabs[i]);
+      b.setAttribute("aria-selected", slug === current);
+      b.onclick = () => go(slug);
+      return b;
+    }));
+  }
+  function setLang(l, first) {
+    lang = l;
+    try { localStorage.setItem("lang", l); } catch {}
+    document.documentElement.lang = l;
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === l));
+    $("live").textContent = L().live;
+    $("keys").textContent = L().keys;
+    $("hintAway").textContent = L().away;
+    $("cvTop").setAttribute("aria-label", L().cv);
+    rotateHeadline(true);
+    buildTabs();
+    updateThemeButton();
+    if (!first) go(current, { keepHash: true });
+  }
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => setLang(b.dataset.lang)));
+
+  // ---- tema ----
+  const prefersLight = matchMedia("(prefers-color-scheme: light)");
+  const effectiveTheme = () => document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
+  function updateThemeButton() {
+    const b = $("theme"), cur = effectiveTheme();
+    b.innerHTML = cur === "dark" ? ICON.sun : ICON.moon;
+    b.setAttribute("aria-label", L().theme[cur]);
+    b.title = L().theme[cur];
+  }
+  function setTheme(next) {
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch {}
+    updateThemeButton();
+  }
+  $("theme").onclick = () => setTheme(effectiveTheme() === "dark" ? "light" : "dark");
+  prefersLight.addEventListener("change", updateThemeButton);
+
+  function setAway(on) { document.body.classList.toggle("away", on); }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { setAway(!document.body.classList.contains("away")); return; }
+    if (document.body.classList.contains("away")) { setAway(false); return; }
+    if (e.target === input || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (/^[1-7]$/.test(e.key)) go(SLUGS[+e.key - 1]);
+    else if (e.key === "/") { e.preventDefault(); input.focus(); }
+  });
+
+  $("globe").dataset.home = C.coords.join(",");
+  $("pu").textContent = C.handle;
+  $("loc").textContent = C.location;
+  $("cvTop").href = C.cv;
+  const fmt = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Istanbul" });
+  const tick = () => ($("clock").textContent = fmt.format(new Date()) + " TRT");
+  tick(); setInterval(tick, 1000);
+
+  setLang(lang, true);
+  const start = SLUGS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
+  go(start, { boot: start === "home", keepHash: true });
+})();
+</script>
+<script src="/static/globe.js" defer></script>
+</body>
+</html>
