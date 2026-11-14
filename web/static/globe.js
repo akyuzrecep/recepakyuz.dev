@@ -6,6 +6,9 @@
   const ctx = canvas.getContext("2d");
   const dots = document.createElement("canvas");
   const dctx = dots.getContext("2d");
+  // parıltı: noktalar 1/4 çözünürlükte çizilip büyütülür (tam ekran blur'dan ~16 kat ucuz)
+  const glow = document.createElement("canvas");
+  const gctx = glow.getContext("2d");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const DEG = Math.PI / 180;
 
@@ -15,7 +18,8 @@
 
   let W = 0, H = 0, dpr = 1, cx = 0, cy = 0, R = 0;
   let lambda = -(homeOf()[1] + 10) * DEG; // ev biraz sağda başlasın, dönerek gelsin
-  let phi = 22 * DEG;                 // kuzey izleyiciye doğru eğik
+  // eğim: kuzey izleyiciye doğru (CSS --globe-tilt, derece). Yakın görünümde 0'a yakın: Avrupa/Türkiye ekranın ortasına gelir
+  let phi = (parseFloat(getComputedStyle(canvas).getPropertyValue("--globe-tilt")) || 22) * DEG;
   let spin = reduced ? 0.01 : 0.06;   // rad/sn
   let vel = spin;
   let P = null;                       // Float32Array [x,y,z,b, ...]
@@ -38,11 +42,143 @@
   new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   matchMedia("(prefers-color-scheme: light)").addEventListener("change", readTheme);
 
+  // ---- WebGL: dünyanın kendisi (gövde, hale, noktalar + ışıltı, kenar) ekran kartında çizilir.
+  // 2D tuval bunun ÜSTÜNDE durur (yıldızlar, gezegenler, kayan yıldızlar, işaretler). WebGL yoksa eski 2D yol.
+  const glc = document.createElement("canvas");
+  glc.id = "globe-gl"; glc.setAttribute("aria-hidden", "true");
+  canvas.before(glc);
+  let gl = null, glDpr = 1, progQ = null, progP = null, quadBuf = null, ptBuf = null, ptCount = 0;
+  try { gl = glc.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }); } catch {}
+  const uni = new Map();
+  const U = (p, n) => { const k = (p === progQ ? "q:" : "p:") + n; if (!uni.has(k)) uni.set(k, gl.getUniformLocation(p, n)); return uni.get(k); };
+  function program(vs, fs) {
+    const mk = (type, src) => {
+      const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      return sh;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  if (gl) {
+    try {
+      // tam ekran dörtgen: mode 0 = hale + gövde (noktaların altı), mode 1 = kenar parlaması (üstü)
+      progQ = program("attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }", `
+        precision mediump float;
+        uniform vec3 geo; uniform vec2 res; uniform float dpr, mode, haloA;
+        uniform vec3 body1, body2, halo, rim;
+        void main() {
+          vec2 p = vec2(gl_FragCoord.x, res.y * dpr - gl_FragCoord.y) / dpr;
+          float d = distance(p, geo.xy) / geo.z;
+          if (mode < 0.5) {
+            if (d < 1.0) {
+              float t = clamp(distance(p, geo.xy + vec2(-0.35, -0.4) * geo.z) / (1.3 * geo.z), 0.0, 1.0);
+              gl_FragColor = vec4(mix(body1, body2, t), 1.0);
+            } else {
+              float u = (d - 0.9) / 0.45;
+              float a = u < 0.35 ? mix(haloA, haloA * 0.36, u / 0.35) : mix(haloA * 0.36, 0.0, clamp((u - 0.35) / 0.65, 0.0, 1.0));
+              gl_FragColor = vec4(halo * a, a);
+            }
+          } else {
+            float u = (d - 0.82) / 0.2;
+            float a = (u < 0.0 || u > 1.0) ? 0.0 : (u < 0.85 ? 0.10 * u / 0.85 : mix(0.10, 0.28, (u - 0.85) / 0.15));
+            gl_FragColor = vec4(rim * a, a);
+          }
+        }`);
+      // noktalar: döndürme ve izdüşüm köşe gölgelendiricide; arka yüz atılır
+      progP = program(`
+        attribute vec4 a;
+        uniform vec4 cs; uniform vec3 geo; uniform vec2 res; uniform float size, glowPass;
+        varying float va, vg;
+        void main() {
+          float x1 = a.x * cs.x + a.z * cs.y, z1 = -a.x * cs.y + a.z * cs.x;
+          float y2 = a.y * cs.z - z1 * cs.w, z2 = a.y * cs.w + z1 * cs.z;
+          vg = glowPass;
+          if (z2 <= 0.02) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; va = 0.0; return; }
+          float al = a.w * (0.15 + 0.85 * pow(z2, 0.7)); // kenara doğru sönümlen
+          vec2 p = vec2(geo.x + x1 * geo.z, geo.y - y2 * geo.z);
+          gl_Position = vec4(p.x / res.x * 2.0 - 1.0, 1.0 - p.y / res.y * 2.0, 0.0, 1.0);
+          gl_PointSize = size * (al >= 0.9 ? 1.5 : 1.0) * (glowPass > 0.5 ? 3.0 : 1.0);
+          va = min(al, 0.95);
+        }`, `
+        precision mediump float;
+        uniform vec3 col; uniform float glowA;
+        varying float va, vg; // vg: ışıltı geçişi mi (uniform iki gölgelendiricide paylaşılmaz: hassasiyet farkı)
+        void main() {
+          if (vg > 0.5) { // ışıltı: noktanın etrafında yumuşak hale (blur yerine)
+            float f = max(0.0, 1.0 - length(gl_PointCoord - 0.5) * 2.0);
+            float a = va * f * f * glowA * 0.35;
+            gl_FragColor = vec4(col * a, a);
+          } else gl_FragColor = vec4(col * va, va);
+        }`);
+      quadBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      ptBuf = gl.createBuffer();
+      gl.enable(gl.BLEND);
+    } catch (e) {
+      console.warn("globe: WebGL kullanılamadı, 2D çizime geçiliyor", e);
+      gl = null;
+    }
+  }
+  if (!gl) glc.remove();
+  const rgbOf = (s) => (s || "0,0,0").split(",").map((v) => +v / 255);
+  const hexOf = (h) => { const n = parseInt((h || "#000").replace("#", ""), 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+  function uploadPoints() {
+    gl.bindBuffer(gl.ARRAY_BUFFER, ptBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, P, gl.STATIC_DRAW);
+    ptCount = P.length / 4;
+  }
+  function drawGL() {
+    gl.viewport(0, 0, glc.width, glc.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // ön-çarpımlı alfa
+    const quad = (mode) => {
+      gl.useProgram(progQ);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      const loc = gl.getAttribLocation(progQ, "a");
+      gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform3f(U(progQ, "geo"), cx, cy, R); gl.uniform2f(U(progQ, "res"), W, H);
+      gl.uniform1f(U(progQ, "dpr"), glDpr); gl.uniform1f(U(progQ, "mode"), mode); gl.uniform1f(U(progQ, "haloA"), T.haloA);
+      gl.uniform3fv(U(progQ, "body1"), hexOf(T.body1)); gl.uniform3fv(U(progQ, "body2"), hexOf(T.body2));
+      gl.uniform3fv(U(progQ, "halo"), rgbOf(T.halo)); gl.uniform3fv(U(progQ, "rim"), rgbOf(T.rim));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+    quad(0);
+    if (ptCount) {
+      gl.useProgram(progP);
+      gl.bindBuffer(gl.ARRAY_BUFFER, ptBuf);
+      const loc = gl.getAttribLocation(progP, "a");
+      gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 0, 0);
+      gl.uniform4f(U(progP, "cs"), Math.cos(lambda), Math.sin(lambda), Math.cos(phi), Math.sin(phi));
+      gl.uniform3f(U(progP, "geo"), cx, cy, R); gl.uniform2f(U(progP, "res"), W, H);
+      gl.uniform1f(U(progP, "size"), Math.max(1.1, Math.min(2.2, R / 330)) * glDpr);
+      gl.uniform3fv(U(progP, "col"), rgbOf(T.dot)); gl.uniform1f(U(progP, "glowA"), T.glow);
+      if (T.glow > 0) {
+        gl.uniform1f(U(progP, "glowPass"), 1);
+        gl.blendFunc(gl.ONE, gl.ONE); // ışıltı eklenir
+        gl.drawArrays(gl.POINTS, 0, ptCount);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      }
+      gl.uniform1f(U(progP, "glowPass"), 0);
+      gl.drawArrays(gl.POINTS, 0, ptCount);
+    }
+    quad(1);
+  }
+
   function resize() {
-    dpr = Math.min(devicePixelRatio || 1, 2);
+    dpr = Math.min(devicePixelRatio || 1, gl ? 1.5 : 2); // 2D katman WebGL varken hafif tutulur
+    if (gl) {
+      glDpr = Math.min(devicePixelRatio || 1, 2);
+      glc.width = Math.round(canvas.clientWidth * glDpr); glc.height = Math.round(canvas.clientHeight * glDpr);
+    }
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = dots.width = Math.round(W * dpr);
     canvas.height = dots.height = Math.round(H * dpr);
+    glow.width = Math.max(1, Math.round((W * dpr) / 4)); glow.height = Math.max(1, Math.round((H * dpr) / 4));
     const cs = getComputedStyle(canvas);
     const fx = parseFloat(cs.getPropertyValue("--globe-x")) || 0.5;
     const fy = parseFloat(cs.getPropertyValue("--globe-y")) || 0.5;
@@ -69,18 +205,30 @@
   }
 
   async function load() {
-    const raw = await (await fetch("/static/land.json")).json();
-    const n = raw.length / 2;
+    // land.idx: 4 bayt N, sonra karadaki Fibonacci sıra numaralarının farkları (varint).
+    // Koordinatlar sunucudaki üreticiyle aynı formülden hesaplanır.
+    const buf = new Uint8Array(await (await fetch("/static/land.idx")).arrayBuffer());
+    const N = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
+    const golden = Math.PI * (3 - Math.sqrt(5)), ll = [];
+    for (let p = 4, i = -1; p < buf.length; ) {
+      let d = 0, sh = 1, b;
+      do { b = buf[p++]; d += (b & 127) * sh; sh *= 128; } while (b & 128);
+      i += d;
+      const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = golden * i;
+      ll.push(Math.asin(y) / DEG, Math.atan2(Math.sin(th) * r, Math.cos(th) * r) / DEG);
+    }
+    const n = ll.length / 2;
     P = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
       // hafif titreşim: Fibonacci ızgarasının desenini kır
-      const j = () => (Math.random() - 0.5) * 0.5;
-      const [x, y, z] = vec(raw[2 * i + 1] / 10 + j(), raw[2 * i] / 10 + j());
+      const j = () => (Math.random() - 0.5) * 0.3;
+      const [x, y, z] = vec(ll[2 * i] + j(), ll[2 * i + 1] + j());
       const r = Math.random();
       // çoğu sönük, azı parlak "şehir ışığı"
       const b = r > 0.985 ? 1.6 : 0.28 + 0.72 * Math.pow(Math.random(), 1.8);
       P.set([x, y, z, b], i * 4);
     }
+    if (gl) uploadPoints();
   }
 
   const BUCKETS = 10;
@@ -98,12 +246,14 @@
       const z2 = y * sp + z1 * cp;
       if (z2 <= 0.02) continue;
       const y2 = y * cp - z1 * sp;
+      const sx = cx + x1 * R, sy = cy - y2 * R;
+      if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue; // ekran dışı: çizme
       // kenara doğru sönümlen (limb darkening)
       const a = P[i + 3] * (0.15 + 0.85 * Math.pow(z2, 0.7));
       const k = Math.min(BUCKETS - 1, (a * BUCKETS) | 0);
-      buckets[k].push(cx + x1 * R, cy - y2 * R);
+      buckets[k].push(sx, sy);
     }
-    const s = Math.max(1.1, R / 260); // nokta boyutu küreyle ölçeklenir
+    const s = Math.max(1.1, Math.min(2.2, R / 330)); // nokta boyutu küreyle ölçeklenir (yakında sınırlı)
     for (let k = 0; k < BUCKETS; k++) {
       const arr = buckets[k];
       if (!arr.length) continue;
@@ -115,13 +265,14 @@
 
   function drawStars(t, dt) {
     const drift = vel * 6 * dt; // yıldızlar dünyanın dönüşüyle hafifçe kayar
+    ctx.fillStyle = `rgb(${T.star})`;
     for (const st of stars) {
       st.x -= drift * st.s;
       if (st.x < 0) st.x += W; else if (st.x > W) st.x -= W;
-      const a = st.a * (0.6 + 0.4 * Math.sin(t * st.s + st.t));
-      ctx.fillStyle = `rgba(${T.star},${a.toFixed(3)})`;
+      ctx.globalAlpha = st.a * (0.6 + 0.4 * Math.sin(t * st.s + st.t));
       ctx.fillRect(st.x, st.y, st.r, st.r);
     }
+    ctx.globalAlpha = 1;
   }
 
   // arka plandaki kayan yıldızlar (dünyanın ve yazıların arkasında)
@@ -352,7 +503,7 @@
       nextComet = 7 + Math.random() * 6;
       if (!tgt) return;
       const ang = (-140 + (Math.random() - 0.5) * 40) * DEG; // sol üstten gelsin
-      const dist = R * 1.4;
+      const dist = Math.min(R * 1.4, 420);
       comet = { sx: tgt[0] + Math.cos(ang) * dist, sy: tgt[1] + Math.sin(ang) * dist, tx: tgt[0], ty: tgt[1], t: 0, dur: 1.1 };
       return;
     }
@@ -431,23 +582,37 @@
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    if (gl) {
+      drawGL();
+      // 2D katman dünyanın üstünde: arka plan öğeleri kürenin dışına kırpılır
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip("evenodd");
+      drawStars(now / 1000, dt);
+      drawMeteors(dt);
+      drawPlanets(now / 1000);
+      ctx.restore();
+    } else {
     drawStars(now / 1000, dt);
     drawMeteors(dt);
     drawPlanets(now / 1000);
     drawAtmosphere();
     drawDots();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (hasFilter && T.glow > 0) { // parıltı katmanı (yalnızca koyu temada)
+    if (T.glow > 0) { // parıltı katmanı (yalnızca koyu temada)
+      gctx.clearRect(0, 0, glow.width, glow.height);
+      if (hasFilter) gctx.filter = "blur(1px)";
+      gctx.drawImage(dots, 0, 0, glow.width, glow.height);
+      gctx.filter = "none";
       ctx.globalCompositeOperation = "lighter";
-      ctx.filter = `blur(${Math.round(4 * dpr)}px)`;
       ctx.globalAlpha = T.glow;
-      ctx.drawImage(dots, 0, 0);
-      ctx.filter = "none"; ctx.globalAlpha = 1;
+      ctx.drawImage(glow, 0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 1;
     }
     ctx.drawImage(dots, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawRim();
+    }
     updateComet(dt);
     drawComet();
     drawPulses(dt);

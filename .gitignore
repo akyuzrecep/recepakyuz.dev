@@ -1,1 +1,4 @@
 bin/
+data/
+# CV (telefon numarası içerir): sadece sunucuda/yerelde durur
+web/static/recep-akyuz-cv.pdf

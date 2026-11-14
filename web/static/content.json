@@ -170,13 +170,13 @@
       },
       "url": "",
       "desc": {
-        "tr": "ASELSAN için on-prem, internetsiz ortamda Kubernetes tabanlı bulut altyapısı: offline kurulum, Rook-Ceph, Velero/MinIO DR, Keycloak SSO.",
-        "en": "Kubernetes-based cloud for ASELSAN, on-prem with no internet: offline install, Rook-Ceph, Velero/MinIO DR, Keycloak SSO."
+        "tr": "ASELSAN için on-prem, internetsiz ortamda Kubernetes tabanlı bulut altyapısı: offline kurulum, Harbor registry, Rook-Ceph depolama, Keycloak SSO.",
+        "en": "Kubernetes-based cloud for ASELSAN, on-prem with no internet: offline install, Harbor registry, Rook-Ceph storage, Keycloak SSO."
       },
       "tags": [
         "k3s",
+        "harbor",
         "rook-ceph",
-        "velero",
         "keycloak"
       ]
     },
@@ -244,21 +244,134 @@
   "stack": [
     {
       "k": {
-        "tr": "kubernetes",
-        "en": "kubernetes"
+        "tr": "kubernetes & konteyner",
+        "en": "kubernetes & containers"
       },
       "v": [
-        "K8s",
-        "K3s",
-        "Helm",
-        "Docker",
-        "KubeVirt",
-        "Traefik",
-        "Nginx",
-        "MetalLB",
-        "Cilium",
-        "Cert-Manager",
-        "Harbor"
+        {
+          "n": "Kubernetes",
+          "i": "kubernetes",
+          "c": "#326CE5"
+        },
+        {
+          "n": "K3s",
+          "i": "k3s",
+          "c": "#FFC61C"
+        },
+        {
+          "n": "Helm",
+          "i": "helm",
+          "c": "#0F1689"
+        },
+        {
+          "n": "Docker",
+          "i": "docker",
+          "c": "#2496ED"
+        },
+        {
+          "n": "KubeVirt",
+          "i": null,
+          "c": null
+        },
+        {
+          "n": "Harbor",
+          "i": "harbor",
+          "c": "#60B932"
+        }
+      ]
+    },
+    {
+      "k": {
+        "tr": "ağ & trafik",
+        "en": "networking & traffic"
+      },
+      "v": [
+        {
+          "n": "Traefik",
+          "i": "traefikproxy",
+          "c": "#24A1C1"
+        },
+        {
+          "n": "Nginx",
+          "i": "nginx",
+          "c": "#009639"
+        },
+        {
+          "n": "Cilium",
+          "i": "cilium",
+          "c": "#F8C517"
+        },
+        {
+          "n": "MetalLB",
+          "i": null,
+          "c": null
+        },
+        {
+          "n": "cert-manager",
+          "i": null,
+          "c": null
+        }
+      ]
+    },
+    {
+      "k": {
+        "tr": "ci/cd & otomasyon",
+        "en": "ci/cd & automation"
+      },
+      "v": [
+        {
+          "n": "GitLab CI/CD",
+          "i": "gitlab",
+          "c": "#FC6D26"
+        },
+        {
+          "n": "SonarQube",
+          "i": "sonarqubeserver",
+          "c": "#126ED3"
+        },
+        {
+          "n": "Bash",
+          "i": "gnubash",
+          "c": "#4EAA25"
+        },
+        {
+          "n": "YAML",
+          "i": "yaml",
+          "c": "#CB171E"
+        }
+      ]
+    },
+    {
+      "k": {
+        "tr": "izleme & loglama",
+        "en": "monitoring & logging"
+      },
+      "v": [
+        {
+          "n": "Prometheus",
+          "i": "prometheus",
+          "c": "#E6522C"
+        },
+        {
+          "n": "Grafana",
+          "i": "grafana",
+          "c": "#F46800"
+        },
+        {
+          "n": "Fluent Bit",
+          "i": "fluentbit",
+          "c": "#49BDA5"
+        },
+        {
+          "n": "OpenSearch",
+          "i": "opensearch",
+          "c": "#005EB8"
+        },
+        {
+          "n": "Kafka",
+          "i": "apachekafka",
+          "c": "#231F20"
+        }
       ]
     },
     {
@@ -267,8 +380,21 @@
         "en": "database"
       },
       "v": [
-        "PostgreSQL",
-        "CloudNativePG (CNPG)"
+        {
+          "n": "PostgreSQL",
+          "i": "postgresql",
+          "c": "#4169E1"
+        },
+        {
+          "n": "CloudNativePG",
+          "i": null,
+          "c": null
+        },
+        {
+          "n": "Redis",
+          "i": "redis",
+          "c": "#FF4438"
+        }
       ]
     },
     {
@@ -277,58 +403,95 @@
         "en": "storage & dr"
       },
       "v": [
-        "Rook-Ceph",
-        "Velero",
-        "MinIO",
-        "Cinder-CSI"
+        {
+          "n": "Rook",
+          "i": "rook",
+          "c": "#2AC6EA"
+        },
+        {
+          "n": "Ceph",
+          "i": "ceph",
+          "c": "#EF5C55"
+        },
+        {
+          "n": "Velero",
+          "i": null,
+          "c": null
+        },
+        {
+          "n": "MinIO",
+          "i": "minio",
+          "c": "#C72E49"
+        },
+        {
+          "n": "Cinder-CSI",
+          "i": "openstack",
+          "c": "#ED1944"
+        }
       ]
     },
     {
       "k": {
-        "tr": "ci/cd",
-        "en": "ci/cd"
+        "tr": "güvenlik & kimlik",
+        "en": "security & identity"
       },
       "v": [
-        "GitLab CI/CD",
-        "SonarQube",
-        "Bash",
-        "YAML"
+        {
+          "n": "Wazuh",
+          "i": null,
+          "c": null
+        },
+        {
+          "n": "Keycloak",
+          "i": "keycloak",
+          "c": "#4D4D4D"
+        },
+        {
+          "n": "OpenLDAP",
+          "i": null,
+          "c": null
+        }
       ]
     },
     {
       "k": {
-        "tr": "siem & gözlem",
-        "en": "siem & observability"
+        "tr": "altyapı",
+        "en": "infrastructure"
       },
       "v": [
-        "Wazuh",
-        "OpenSearch",
-        "Kafka",
-        "Fluent Bit",
-        "Prometheus",
-        "Grafana"
+        {
+          "n": "OpenStack",
+          "i": "openstack",
+          "c": "#ED1944"
+        },
+        {
+          "n": "Linux",
+          "i": "linux",
+          "c": "#FCC624"
+        }
       ]
     },
     {
       "k": {
-        "tr": "kimlik",
-        "en": "identity"
+        "tr": "bulut (temel)",
+        "en": "cloud (fundamentals)"
       },
       "v": [
-        "Keycloak (SSO/SAML)",
-        "OpenLDAP"
-      ]
-    },
-    {
-      "k": {
-        "tr": "bulut & altyapı",
-        "en": "cloud & infra"
-      },
-      "v": [
-        "OpenStack",
-        "Linux",
-        "Networking",
-        "AWS · Azure · GCP (temel)"
+        {
+          "n": "AWS",
+          "i": "amazonwebservices",
+          "c": "#FF9900"
+        },
+        {
+          "n": "Azure",
+          "i": "microsoftazure",
+          "c": "#0078D4"
+        },
+        {
+          "n": "Google Cloud",
+          "i": "googlecloud",
+          "c": "#4285F4"
+        }
       ]
     }
   ],
@@ -359,5 +522,20 @@
       "label": "ssh",
       "url": "https://ssh.recepakyuz.dev"
     }
+  ],
+  "core": [
+    "Kubernetes",
+    "K3s",
+    "Helm",
+    "Docker",
+    "GitLab CI/CD",
+    "Prometheus",
+    "Grafana",
+    "OpenSearch",
+    "PostgreSQL",
+    "Ceph",
+    "MinIO",
+    "Keycloak",
+    "Linux"
   ]
 }

@@ -101,6 +101,23 @@
     if (url === C.cv) { a.target = "_blank"; a.rel = "noopener"; }
     return a;
   }
+  // teknoloji logosu: Simple Icons SVG'si maske olarak, marka rengiyle; logosu olmayana kısaltma
+  function icon(x, titled) {
+    const i = el("i", "ic");
+    if (titled) i.title = x.n;
+    if (!x.i) {
+      i.classList.add("mono");
+      const caps = x.n.match(/[A-Z]/g) || [], words = x.n.split(/[^A-Za-z0-9]+/).filter(Boolean);
+      i.textContent = (caps.length >= 2 ? caps.join("") : words.length >= 2 ? words.map((w) => w[0]).join("") : x.n).slice(0, 2).toUpperCase();
+      return i;
+    }
+    i.style.setProperty("--m", `url(/static/icons/${x.i}.svg)`);
+    i.style.setProperty("--c", x.c);
+    const n = parseInt(x.c.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    if (lum < 0.25) i.classList.add("dim"); // koyu temada kaybolmasın
+    return i;
+  }
+
   function promptLine(cmd) {
     const p = el("p", "line prompt");
     p.innerHTML = `<b>${C.handle}</b>:<span class="path">~</span>$ `;
@@ -137,7 +154,12 @@
       C.stats.forEach((s) => { const d = el("div", "stat"); d.append(el("b", null, s.v), el("span", null, t(s.k))); st.append(d); });
       const cta = el("div", "cta");
       cta.append(link("↗ " + L().cv, C.cv, "primary"), link("✉ mail", linkOf("email")), link("in linkedin", linkOf("linkedin")), link("→ " + L().ssh, sshURL));
-      return [["whoami", [nm, kv, lead]], ["stat --quick", [st]], ["ls ./links", [cta]]];
+      const all = C.stack.flatMap((s) => s.v), row = el("div", "iconrow");
+      C.core.forEach((n) => { const x = all.find((y) => y.n === n); if (x) row.append(icon(x, true)); });
+      const more = el("button", "more", lang === "tr" ? "tümü →" : "all →");
+      more.onclick = () => go("skills");
+      row.append(more);
+      return [["whoami", [nm, kv, lead]], ["stat --quick", [st]], ["ls ~/stack", [row]], ["ls ./links", [cta]]];
     },
     about() {
       const ps = t(C.about).map((p) => el("p", "line", p));
@@ -169,9 +191,12 @@
       return [["ls ~/projects", items]];
     },
     skills() {
-      const kv = el("dl", "kv");
-      C.stack.forEach((s) => kv.append(el("dt", null, t(s.k)), el("dd", null, s.v.join(" · "))));
-      kv.style.rowGap = "6px";
+      const kv = el("dl", "kv stack");
+      C.stack.forEach((s) => {
+        const dd = el("dd", "chips");
+        s.v.forEach((x) => { const c = el("span", "chip"); c.append(icon(x), x.n); dd.append(c); });
+        kv.append(el("dt", null, t(s.k)), dd);
+      });
       return [["cat stack.yml", [kv]]];
     },
     now() {

@@ -29,13 +29,16 @@
   --g-glow: 0.55;
   --g-planet-shade: 4, 7, 20;
   --g-visit: 94, 234, 212;
+  --ic-dim: var(--text);
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --globe-x: 0.70;
-  --globe-y: 0.57;
-  --globe-r: 0.35;
+  /* yakın görünüm: kürenin merkezi ekranın altında, sadece üst kısmı (yüzey + ufuk) görünür */
+  --globe-x: 0.66;
+  --globe-y: 1.28;
+  --globe-r: 1.0;
+  --globe-tilt: 2;
 }
 
 @media (prefers-color-scheme: light) {
@@ -67,6 +70,7 @@
     --g-glow: 0;
     --g-planet-shade: 150, 160, 190;
     --g-visit: 13, 148, 136;
+    --ic-dim: initial;
   }
 }
 :root[data-theme="light"] {
@@ -97,6 +101,7 @@
   --g-glow: 0;
   --g-planet-shade: 150, 160, 190;
     --g-visit: 13, 148, 136;
+    --ic-dim: initial;
 }
 
 /* ---------- temel ---------- */
@@ -123,6 +128,7 @@ button { font: inherit; color: inherit; }
   z-index: 0; cursor: grab; touch-action: pan-y;
 }
 #globe.dragging { cursor: grabbing; }
+#globe-gl { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
 
 /* dünyanın üstündeki cümle */
 .headline {
@@ -176,13 +182,16 @@ button { font: inherit; color: inherit; }
 .seg button[aria-pressed="true"] { color: var(--text); background: var(--surface-2); }
 
 .tabs {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px;
+  display: flex; flex-wrap: nowrap; gap: 4px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 12px;
+  overflow-x: auto; scrollbar-width: none; /* dar ekranda yana kayar */
 }
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
+  flex: 1 0 auto; text-align: center; white-space: nowrap;
   color: var(--text); background: var(--surface-2);
   border: 1px solid var(--border-strong); border-radius: 6px;
-  padding: 4px 10px; font: inherit; cursor: pointer;
+  padding: 4px 4px; font: inherit; cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .tab .n { color: var(--faint); }
@@ -222,6 +231,30 @@ button { font: inherit; color: inherit; }
 .item ul li + li, ul.list li + li { margin-top: 3px; }
 .item p { color: var(--muted); margin-top: 2px; }
 .tag { color: var(--accent); font-size: 12px; margin-right: 10px; }
+
+/* teknoloji logoları */
+.kv.stack { row-gap: 10px; align-items: start; }
+.kv.stack dt { padding-top: 5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 3px 9px 3px 5px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface-2); font-size: 12.5px; white-space: nowrap;
+}
+.ic {
+  width: 18px; height: 18px; flex: none; background: var(--c);
+  -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat;
+}
+.ic.dim { background: var(--ic-dim, var(--c)); }
+.ic.mono {
+  -webkit-mask: none; mask: none; background: none;
+  display: grid; place-items: center; font: 600 8.5px/1 var(--mono); color: var(--muted);
+  border: 1px solid var(--border-strong); border-radius: 4px;
+}
+.iconrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.iconrow .ic { width: 24px; height: 24px; }
+.iconrow .more { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
+.iconrow .more:hover { text-decoration: underline; }
 .cta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .cta a { border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 12px; color: var(--text); }
 .cta a.primary { border-color: var(--accent); color: var(--accent); }
@@ -267,7 +300,9 @@ body.away .hint-away { opacity: 1; }
 
 /* ---------- mobil ---------- */
 @media (max-width: 960px) {
-  :root { --globe-x: 0.5; --globe-y: 0.27; --globe-r: 0.40; }
+  .kv.stack { grid-template-columns: 1fr; row-gap: 4px; }
+  .kv.stack dd { margin-bottom: 8px; }
+  :root { --globe-x: 0.5; --globe-y: 0.27; --globe-r: 0.40; --globe-tilt: 22; }
   .headline { position: absolute; top: calc(27vh + 40vw + 10px); width: calc(100vw - 32px); font-size: 19px; }
   .shell { margin: calc(27vh + 40vw + 96px) auto 24px; }
   .titlebar .title { display: none; }
