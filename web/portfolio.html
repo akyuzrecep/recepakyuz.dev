@@ -87,7 +87,7 @@
     moon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"/></svg>',
   };
 
-  // ---- küçük DOM yardımcıları ----
+  // ---- small DOM helpers ----
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -101,7 +101,7 @@
     if (url === C.cv) { a.target = "_blank"; a.rel = "noopener"; }
     return a;
   }
-  // teknoloji logosu: Simple Icons SVG'si maske olarak, marka rengiyle; logosu olmayana kısaltma
+  // technology logo: Simple Icons SVG used as a mask in the brand colour; a monogram when there is no logo
   function icon(x, titled) {
     const i = el("i", "ic");
     if (titled) i.title = x.n;
@@ -114,7 +114,7 @@
     i.style.setProperty("--m", `url(/static/icons/${x.i}.svg)`);
     i.style.setProperty("--c", x.c);
     const n = parseInt(x.c.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-    if (lum < 0.25) i.classList.add("dim"); // koyu temada kaybolmasın
+    if (lum < 0.25) i.classList.add("dim"); // keep dark brand colours visible in the dark theme
     return i;
   }
 
@@ -140,7 +140,7 @@
     return b;
   }
 
-  // ---- sekmeler ----
+  // ---- tabs ----
   const renderers = {
     home() {
       const nm = el("div", "name", C.name);
@@ -236,7 +236,7 @@
     }
   }
 
-  // ---- komut satırı ----
+  // ---- command line ----
   function out(...nodes) { block(...nodes); input.scrollIntoView({ block: "nearest" }); }
   const commands = {
     help() {
@@ -268,7 +268,7 @@
     const raw = input.value.trim();
     input.value = "";
     if (!raw) return;
-    token++; // süren yazma animasyonunu durdur
+    token++; // stop any running typing animation
     const [name, ...args] = raw.split(/\s+/);
     const pl = promptLine(raw); pl.c.textContent = raw;
     const fn = commands[name.toLowerCase()];
@@ -276,12 +276,12 @@
     else out(el("p", "line warn", `zsh: ${L().notfound}: ${name} — ${L().tryHelp}`));
   });
 
-  // ---- dünyanın üstündeki cümleler ----
+  // ---- rotating sentences above the globe ----
   let hlIndex = 0, hlTimer = null;
   function rotateHeadline(reset) {
     const list = t(C.headlines), h = $("headline");
     clearTimeout(hlTimer);
-    if (reset) { hlIndex = 0; h.innerHTML = list[0]; } // content.json'dan, güvenilir kaynak
+    if (reset) { hlIndex = 0; h.innerHTML = list[0]; } // from content.json, a trusted source
     hlTimer = setTimeout(() => {
       hlIndex = (hlIndex + 1) % list.length;
       if (reduced) { h.innerHTML = list[hlIndex]; return rotateHeadline(); }
@@ -290,7 +290,7 @@
     }, 5000);
   }
 
-  // ---- dil / sekmeler ----
+  // ---- language / tabs ----
   function buildTabs() {
     $("tabs").replaceChildren(...SLUGS.map((slug, i) => {
       const b = el("button", "tab");
@@ -320,7 +320,7 @@
   }
   document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => setLang(b.dataset.lang)));
 
-  // ---- tema ----
+  // ---- theme ----
   const prefersLight = matchMedia("(prefers-color-scheme: light)");
   const effectiveTheme = () => document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
   function updateThemeButton() {

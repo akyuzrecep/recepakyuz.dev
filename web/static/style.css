@@ -1,4 +1,4 @@
-/* ---------- tema ---------- */
+/* ---------- theme ---------- */
 :root {
   color-scheme: dark;
   --bg: #070a12;
@@ -16,7 +16,7 @@
   --code-bg: rgba(0, 0, 0, 0.35);
   --shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.75);
 
-  /* dünya ve gezegenler (globe.js okur) */
+  /* globe and planets (read by globe.js) */
   --g-dot: 255, 246, 220;
   --g-body-1: #0d1532;
   --g-body-2: #04071a;
@@ -34,7 +34,7 @@
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* yakın görünüm: kürenin merkezi ekranın altında, sadece üst kısmı (yüzey + ufuk) görünür */
+  /* close-up view: the sphere's centre is below the screen, only its top (surface + horizon) is visible */
   --globe-x: 0.66;
   --globe-y: 1.28;
   --globe-r: 1.0;
@@ -104,7 +104,7 @@
     --ic-dim: initial;
 }
 
-/* ---------- temel ---------- */
+/* ---------- base ---------- */
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -130,7 +130,7 @@ button { font: inherit; color: inherit; }
 #globe.dragging { cursor: grabbing; }
 #globe-gl { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
 
-/* dünyanın üstündeki cümle */
+/* rotating sentence above the globe */
 .headline {
   position: fixed; z-index: 1; pointer-events: none;
   left: calc(var(--globe-x) * 100vw); top: 8vh; transform: translateX(-50%);
@@ -142,7 +142,7 @@ button { font: inherit; color: inherit; }
 .headline em { font-style: normal; color: var(--accent); }
 .headline.out { opacity: 0; transform: translateX(-50%) translateY(-6px); }
 
-/* ---------- terminal penceresi ---------- */
+/* ---------- terminal window ---------- */
 .shell {
   position: relative; z-index: 2;
   width: min(700px, calc(100vw - 32px));
@@ -184,7 +184,7 @@ button { font: inherit; color: inherit; }
 .tabs {
   display: flex; flex-wrap: nowrap; gap: 4px;
   padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 12px;
-  overflow-x: auto; scrollbar-width: none; /* dar ekranda yana kayar */
+  overflow-x: auto; scrollbar-width: none; /* scrolls sideways on narrow screens */
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -232,7 +232,7 @@ button { font: inherit; color: inherit; }
 .item p { color: var(--muted); margin-top: 2px; }
 .tag { color: var(--accent); font-size: 12px; margin-right: 10px; }
 
-/* teknoloji logoları */
+/* technology logos */
 .kv.stack { row-gap: 10px; align-items: start; }
 .kv.stack dt { padding-top: 5px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -279,7 +279,7 @@ button { font: inherit; color: inherit; }
 }
 @keyframes blink { 50% { opacity: 0.35; } }
 
-/* esc: terminali gizle, dünyayı izle */
+/* esc: hide the terminal, watch the globe */
 body.away .shell { opacity: 0; pointer-events: none; transform: translateY(8px); }
 body.away .headline { opacity: 0; }
 .hint-away {
@@ -288,7 +288,7 @@ body.away .headline { opacity: 0; }
 }
 body.away .hint-away { opacity: 1; }
 
-/* kod blokları (ssh sayfası) */
+/* code blocks (ssh page) */
 .code {
   position: relative; margin: 8px 0 4px;
   background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
@@ -298,7 +298,7 @@ body.away .hint-away { opacity: 1; }
 .code .p { color: var(--faint); user-select: none; }
 .code .copy { position: absolute; top: 6px; right: 6px; }
 
-/* ---------- mobil ---------- */
+/* ---------- mobile ---------- */
 @media (max-width: 960px) {
   .kv.stack { grid-template-columns: 1fr; row-gap: 4px; }
   .kv.stack dd { margin-bottom: 8px; }

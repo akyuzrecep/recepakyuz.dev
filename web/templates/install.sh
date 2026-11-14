@@ -1,6 +1,6 @@
 #!/bin/sh
-# {{.Host}}{{.Path}} — SSH anahtarlarını ~/.ssh/authorized_keys'e ekler.
-# Var olan satırlara ve sıralamaya dokunmaz; eksik anahtarı ekler.
+# {{.Host}}{{.Path}} — adds the SSH keys to ~/.ssh/authorized_keys.
+# Leaves existing lines and their order alone; only adds missing keys.
 set -eu
 dir="$HOME/.ssh"
 file="$dir/authorized_keys"
@@ -8,7 +8,7 @@ mkdir -p "$dir"
 chmod 700 "$dir"
 touch "$file"
 chmod 600 "$file"
-# dosya newline ile bitmiyorsa ekle, yoksa ilk anahtar son satıra yapışır
+# add a newline if the file doesn't end with one, otherwise the first key sticks to the last line
 if [ -s "$file" ] && [ "$(tail -c1 "$file")" != "" ]; then echo >> "$file"; fi
 
 added=0
@@ -25,4 +25,4 @@ while IFS= read -r line; do
 done <<'__KEYS__'
 {{.KeysText}}__KEYS__
 
-echo "✓ {{.Host}}{{.Path}}: $added anahtar eklendi, $skipped zaten vardı → $file"
+echo "✓ {{.Host}}{{.Path}}: $added key(s) added, $skipped already present → $file"

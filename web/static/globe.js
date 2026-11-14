@@ -1,33 +1,33 @@
-// Noktalı, dönen, parlayan dünya. Bağımlılık yok — canvas 2D.
-// Konum/boyut CSS değişkenlerinden okunur: --globe-x, --globe-y (0..1), --globe-r (kısa kenara oran).
+// A dotted, spinning, glowing globe. No dependencies: WebGL, with a 2D canvas fallback.
+// Position/size come from CSS variables: --globe-x, --globe-y (0..1), --globe-r (fraction of the short side).
 (() => {
   const canvas = document.getElementById("globe");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const dots = document.createElement("canvas");
   const dctx = dots.getContext("2d");
-  // parıltı: noktalar 1/4 çözünürlükte çizilip büyütülür (tam ekran blur'dan ~16 kat ucuz)
+  // glow (2D fallback): dots are drawn at 1/4 resolution and scaled up (~16x cheaper than a full-screen blur)
   const glow = document.createElement("canvas");
   const gctx = glow.getContext("2d");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const DEG = Math.PI / 180;
 
-  // Ev konumu (nabız atan nokta + kuyruklu yıldızların hedefi)
-  // (sayfa data-home'u sonradan set edebilir, o yüzden her seferinde okunur)
+  // Home location (the pulsing dot and the comets' target)
+  // (the page may set data-home later, so it is read every time)
   const homeOf = () => (canvas.dataset.home || "41.01,28.98").split(",").map(Number);
 
   let W = 0, H = 0, dpr = 1, cx = 0, cy = 0, R = 0;
-  let lambda = -(homeOf()[1] + 10) * DEG; // ev biraz sağda başlasın, dönerek gelsin
-  // eğim: kuzey izleyiciye doğru (CSS --globe-tilt, derece). Yakın görünümde 0'a yakın: Avrupa/Türkiye ekranın ortasına gelir
+  let lambda = -(homeOf()[1] + 10) * DEG; // start with home a bit off-centre so it rotates into view
+  // tilt: north towards the viewer (CSS --globe-tilt, degrees). Near 0 in the close-up view so Europe/Turkey sit mid-screen
   let phi = (parseFloat(getComputedStyle(canvas).getPropertyValue("--globe-tilt")) || 22) * DEG;
-  let spin = reduced ? 0.01 : 0.06;   // rad/sn
+  let spin = reduced ? 0.01 : 0.06;   // rad/s
   let vel = spin;
   let P = null;                       // Float32Array [x,y,z,b, ...]
   let stars = [];
   let comet = null, nextComet = 2.5, pulses = [];
   let meteors = [], nextMeteor = 0.3;
 
-  // renkler temadan (CSS değişkenleri) okunur; tema değişince yenilenir
+  // colours come from the theme (CSS variables) and refresh when the theme changes
   let T = {};
   function readTheme() {
     const cs = getComputedStyle(document.documentElement), v = (n) => cs.getPropertyValue(n).trim();
@@ -42,8 +42,8 @@
   new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   matchMedia("(prefers-color-scheme: light)").addEventListener("change", readTheme);
 
-  // ---- WebGL: dünyanın kendisi (gövde, hale, noktalar + ışıltı, kenar) ekran kartında çizilir.
-  // 2D tuval bunun ÜSTÜNDE durur (yıldızlar, gezegenler, kayan yıldızlar, işaretler). WebGL yoksa eski 2D yol.
+  // ---- WebGL: the globe itself (body, halo, dots + glow, rim) is drawn on the GPU.
+  // The 2D canvas sits ON TOP of it (stars, planets, meteors, markers). Without WebGL the old 2D path is used.
   const glc = document.createElement("canvas");
   glc.id = "globe-gl"; glc.setAttribute("aria-hidden", "true");
   canvas.before(glc);
@@ -64,7 +64,7 @@
   }
   if (gl) {
     try {
-      // tam ekran dörtgen: mode 0 = hale + gövde (noktaların altı), mode 1 = kenar parlaması (üstü)
+      // full-screen quad: mode 0 = halo + body (under the dots), mode 1 = rim glow (on top)
       progQ = program("attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }", `
         precision mediump float;
         uniform vec3 geo; uniform vec2 res; uniform float dpr, mode, haloA;
@@ -87,7 +87,7 @@
             gl_FragColor = vec4(rim * a, a);
           }
         }`);
-      // noktalar: döndürme ve izdüşüm köşe gölgelendiricide; arka yüz atılır
+      // dots: rotation and projection happen in the vertex shader; the far side is discarded
       progP = program(`
         attribute vec4 a;
         uniform vec4 cs; uniform vec3 geo; uniform vec2 res; uniform float size, glowPass;
@@ -97,7 +97,7 @@
           float y2 = a.y * cs.z - z1 * cs.w, z2 = a.y * cs.w + z1 * cs.z;
           vg = glowPass;
           if (z2 <= 0.02) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; va = 0.0; return; }
-          float al = a.w * (0.15 + 0.85 * pow(z2, 0.7)); // kenara doğru sönümlen
+          float al = a.w * (0.15 + 0.85 * pow(z2, 0.7)); // fade towards the limb
           vec2 p = vec2(geo.x + x1 * geo.z, geo.y - y2 * geo.z);
           gl_Position = vec4(p.x / res.x * 2.0 - 1.0, 1.0 - p.y / res.y * 2.0, 0.0, 1.0);
           gl_PointSize = size * (al >= 0.9 ? 1.5 : 1.0) * (glowPass > 0.5 ? 3.0 : 1.0);
@@ -105,9 +105,9 @@
         }`, `
         precision mediump float;
         uniform vec3 col; uniform float glowA;
-        varying float va, vg; // vg: ışıltı geçişi mi (uniform iki gölgelendiricide paylaşılmaz: hassasiyet farkı)
+        varying float va, vg; // vg: glow pass? (not a shared uniform: precisions differ between the two shaders)
         void main() {
-          if (vg > 0.5) { // ışıltı: noktanın etrafında yumuşak hale (blur yerine)
+          if (vg > 0.5) { // glow: a soft halo around each dot (instead of a blur)
             float f = max(0.0, 1.0 - length(gl_PointCoord - 0.5) * 2.0);
             float a = va * f * f * glowA * 0.35;
             gl_FragColor = vec4(col * a, a);
@@ -119,7 +119,7 @@
       ptBuf = gl.createBuffer();
       gl.enable(gl.BLEND);
     } catch (e) {
-      console.warn("globe: WebGL kullanılamadı, 2D çizime geçiliyor", e);
+      console.warn("globe: WebGL unavailable, falling back to 2D", e);
       gl = null;
     }
   }
@@ -135,7 +135,7 @@
     gl.viewport(0, 0, glc.width, glc.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // ön-çarpımlı alfa
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied alpha
     const quad = (mode) => {
       gl.useProgram(progQ);
       gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
@@ -159,7 +159,7 @@
       gl.uniform3fv(U(progP, "col"), rgbOf(T.dot)); gl.uniform1f(U(progP, "glowA"), T.glow);
       if (T.glow > 0) {
         gl.uniform1f(U(progP, "glowPass"), 1);
-        gl.blendFunc(gl.ONE, gl.ONE); // ışıltı eklenir
+        gl.blendFunc(gl.ONE, gl.ONE); // glow is additive
         gl.drawArrays(gl.POINTS, 0, ptCount);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       }
@@ -170,7 +170,7 @@
   }
 
   function resize() {
-    dpr = Math.min(devicePixelRatio || 1, gl ? 1.5 : 2); // 2D katman WebGL varken hafif tutulur
+    dpr = Math.min(devicePixelRatio || 1, gl ? 1.5 : 2); // keep the 2D layer light when WebGL does the heavy lifting
     if (gl) {
       glDpr = Math.min(devicePixelRatio || 1, 2);
       glc.width = Math.round(canvas.clientWidth * glDpr); glc.height = Math.round(canvas.clientHeight * glDpr);
@@ -196,7 +196,7 @@
     return [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)];
   }
 
-  // dünya koordinatı → ekran; z>0 ise ön yüzde
+  // world coordinates → screen; z > 0 means the near side
   function project(x, y, z) {
     const cl = Math.cos(lambda), sl = Math.sin(lambda), cp = Math.cos(phi), sp = Math.sin(phi);
     const x1 = x * cl + z * sl, z1 = -x * sl + z * cl;
@@ -205,8 +205,8 @@
   }
 
   async function load() {
-    // land.idx: 4 bayt N, sonra karadaki Fibonacci sıra numaralarının farkları (varint).
-    // Koordinatlar sunucudaki üreticiyle aynı formülden hesaplanır.
+    // land.idx: 4-byte N, then the deltas between Fibonacci indices that fall on land (varint).
+    // Coordinates are recomputed with the same formula the generator used.
     const buf = new Uint8Array(await (await fetch("/static/land.idx")).arrayBuffer());
     const N = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
     const golden = Math.PI * (3 - Math.sqrt(5)), ll = [];
@@ -220,11 +220,11 @@
     const n = ll.length / 2;
     P = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
-      // hafif titreşim: Fibonacci ızgarasının desenini kır
+      // slight jitter to break up the Fibonacci lattice pattern
       const j = () => (Math.random() - 0.5) * 0.3;
       const [x, y, z] = vec(ll[2 * i] + j(), ll[2 * i + 1] + j());
       const r = Math.random();
-      // çoğu sönük, azı parlak "şehir ışığı"
+      // mostly dim, a few bright "city lights"
       const b = r > 0.985 ? 1.6 : 0.28 + 0.72 * Math.pow(Math.random(), 1.8);
       P.set([x, y, z, b], i * 4);
     }
@@ -247,13 +247,13 @@
       if (z2 <= 0.02) continue;
       const y2 = y * cp - z1 * sp;
       const sx = cx + x1 * R, sy = cy - y2 * R;
-      if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue; // ekran dışı: çizme
-      // kenara doğru sönümlen (limb darkening)
+      if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue; // off-screen: skip
+      // limb darkening
       const a = P[i + 3] * (0.15 + 0.85 * Math.pow(z2, 0.7));
       const k = Math.min(BUCKETS - 1, (a * BUCKETS) | 0);
       buckets[k].push(sx, sy);
     }
-    const s = Math.max(1.1, Math.min(2.2, R / 330)); // nokta boyutu küreyle ölçeklenir (yakında sınırlı)
+    const s = Math.max(1.1, Math.min(2.2, R / 330)); // dot size scales with the globe (capped when close up)
     for (let k = 0; k < BUCKETS; k++) {
       const arr = buckets[k];
       if (!arr.length) continue;
@@ -264,7 +264,7 @@
   }
 
   function drawStars(t, dt) {
-    const drift = vel * 6 * dt; // yıldızlar dünyanın dönüşüyle hafifçe kayar
+    const drift = vel * 6 * dt; // stars drift slightly with the globe's rotation
     ctx.fillStyle = `rgb(${T.star})`;
     for (const st of stars) {
       st.x -= drift * st.s;
@@ -275,9 +275,9 @@
     ctx.globalAlpha = 1;
   }
 
-  // arka plandaki kayan yıldızlar (dünyanın ve yazıların arkasında)
+  // shooting stars in the background (behind the globe and the text)
   function spawnMeteor() {
-    const ang = (195 + Math.random() * 50) * DEG; // çoğunlukla sağ üstten sol alta
+    const ang = (195 + Math.random() * 50) * DEG; // mostly from top right to bottom left
     const speed = 500 + Math.random() * 900;
     const fromTop = Math.random() < 0.6;
     meteors.push({
@@ -293,7 +293,7 @@
     nextMeteor -= dt;
     if (nextMeteor <= 0) {
       spawnMeteor();
-      if (Math.random() < 0.22) { spawnMeteor(); spawnMeteor(); } // ara sıra yağmur
+      if (Math.random() < 0.22) { spawnMeteor(); spawnMeteor(); } // an occasional shower
       nextMeteor = 0.12 + Math.random() * 0.55;
     }
     ctx.lineCap = "round";
@@ -312,12 +312,12 @@
     }
   }
 
-  // arka plandaki küçük gezegenler: konum ekran oranı, boyut piksel (ekranla ölçeklenir)
+  // small background planets: position as a screen fraction, size in px (scaled with the screen)
   const PLANETS = [
-    { fx: 0.94, fy: 0.14, r: 20, c: [212, 172, 124], ring: true, tilt: -0.38, ph: 0.0 }, // halkalı
-    { fx: 0.975, fy: 0.56, r: 8, c: [200, 104, 78], ph: 1.7 },                           // kızıl
-    { fx: 0.58, fy: 0.94, r: 12, c: [104, 168, 196], ph: 3.1 },                          // buz mavisi
-    { fx: 0.035, fy: 0.95, r: 6, c: [160, 160, 172], ph: 4.4 },                          // gri, uzak
+    { fx: 0.94, fy: 0.14, r: 20, c: [212, 172, 124], ring: true, tilt: -0.38, ph: 0.0 }, // ringed
+    { fx: 0.975, fy: 0.56, r: 8, c: [200, 104, 78], ph: 1.7 },                           // red
+    { fx: 0.58, fy: 0.94, r: 12, c: [104, 168, 196], ph: 3.1 },                          // ice blue
+    { fx: 0.035, fy: 0.95, r: 6, c: [160, 160, 172], ph: 4.4 },                          // grey, far away
   ];
   const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
   function drawPlanets(t) {
@@ -335,27 +335,27 @@
         ctx.beginPath(); ctx.ellipse(x, y, r * 2.45, r * 0.64, p.tilt, from, to); ctx.stroke();
         ctx.restore();
       };
-      // hafif hale
+      // faint halo
       let g = ctx.createRadialGradient(x, y, r * 0.9, x, y, r * 1.8);
       g.addColorStop(0, `rgba(${p.c},0.16)`); g.addColorStop(1, `rgba(${p.c},0)`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.8, 0, 7); ctx.fill();
-      if (p.ring) ring(Math.PI, Math.PI * 2); // halkanın arka yarısı
-      // gövde: sol üstten ışık alır
+      if (p.ring) ring(Math.PI, Math.PI * 2); // back half of the ring
+      // body: lit from the top left
       g = ctx.createRadialGradient(x - r * 0.45, y - r * 0.45, r * 0.1, x, y, r * 1.05);
       g.addColorStop(0, `rgb(${mix(p.c, [255, 255, 255], 0.25)})`);
       g.addColorStop(0.55, `rgb(${p.c})`);
       g.addColorStop(1, `rgb(${mix(p.c, shade, 0.75)})`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-      if (p.ring) ring(0, Math.PI); // ön yarısı gezegenin önünden geçer
+      if (p.ring) ring(0, Math.PI); // the front half passes in front of the planet
     }
   }
 
-  // ---- ziyaretçiler: şu an sitede olanlar (nabız), yeni gelen → ev arası yay ----
+  // ---- visitors: who is here now (pulses), new arrival → arc to home ----
   const VIS = canvas.dataset.visitors === "1";
   let online = new Map(), self = null, arcs = [];
   const near = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] > 0.99995;
 
-  function projectFull(x, y, z) { // birim olmayan vektörler için (yay küreden yükselir)
+  function projectFull(x, y, z) { // for non-unit vectors (arcs rise above the surface)
     const cl = Math.cos(lambda), sl = Math.sin(lambda), cp = Math.cos(phi), sp = Math.sin(phi);
     const x1 = x * cl + z * sl, z1 = -x * sl + z * cl;
     const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
@@ -374,7 +374,7 @@
     if (!near(from, to)) arcs.push({ a: from, b: to, t: 0 });
   }
 
-  // 30 sn'de bir "buradayım" der, yanıtta şu an sitede olanları alır (sürekli bağlantı yok)
+  // says "I'm here" every 30 s and gets the current visitors back (no long-lived connection)
   function startVisitors() {
     let sid;
     try {
@@ -390,17 +390,17 @@
         if (r.status !== 200) return;
         const d = await r.json();
         const next = new Map(d.online.map((p) => [p.id, { v: vec(p.lat, p.lon) }]));
-        if (!first) for (const [id, o] of next) if (!online.has(id)) addArc(o.v); // yeni gelen → eve yay
+        if (!first) for (const [id, o] of next) if (!online.has(id)) addArc(o.v); // new arrival → arc to home
         online = next;
         if (d.self) {
           const v = vec(d.self.lat, d.self.lon);
-          if (!self) setTimeout(() => addArc(v), 1500); // hoş geldin yayı
+          if (!self) setTimeout(() => addArc(v), 1500); // welcome arc
           self = { v };
         }
         first = false;
       } catch {}
     }
-    setTimeout(ping, 800); // önce dünya yüklensin
+    setTimeout(ping, 800); // let the globe load first
     setInterval(ping, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) ping(); });
   }
@@ -408,7 +408,7 @@
   function drawVisitors(t, dt) {
     if (!VIS) return;
     const c = T.visit, k = Math.max(0.8, R / 300);
-    // şu an sitede olanlar: sürekli nabız
+    // who is here now: continuous pulse
     const pulseAt = (v, seed) => {
       const p = project(...v);
       if (p[2] <= 0.05) return null;
@@ -429,7 +429,7 @@
         ctx.fillText(label, p[0] + 10, p[1] - 8);
       }
     }
-    // yaylar: ziyaretçinin şehrinden eve, kürenin üstünden
+    // arcs: from the visitor's city to home, over the surface
     arcs = arcs.filter((a) => (a.t += dt) < 2.6);
     ctx.lineCap = "round";
     for (const a of arcs) {
@@ -456,14 +456,14 @@
   }
 
   function drawAtmosphere() {
-    // dış hale
+    // outer halo
     let g = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.35);
     g.addColorStop(0, `rgba(${T.halo},${T.haloA})`);
     g.addColorStop(0.35, `rgba(${T.halo},${T.haloA * 0.36})`);
     g.addColorStop(1, `rgba(${T.halo},0)`);
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.35, 0, 7); ctx.fill();
-    // kürenin gövdesi: yıldızları örter, hafif hacim verir
+    // globe body: hides the stars and adds a bit of volume
     g = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
     g.addColorStop(0, T.body1);
     g.addColorStop(1, T.body2);
@@ -502,7 +502,7 @@
       const tgt = visibleTarget();
       nextComet = 7 + Math.random() * 6;
       if (!tgt) return;
-      const ang = (-140 + (Math.random() - 0.5) * 40) * DEG; // sol üstten gelsin
+      const ang = (-140 + (Math.random() - 0.5) * 40) * DEG; // come in from the top left
       const dist = Math.min(R * 1.4, 420);
       comet = { sx: tgt[0] + Math.cos(ang) * dist, sy: tgt[1] + Math.sin(ang) * dist, tx: tgt[0], ty: tgt[1], t: 0, dur: 1.1 };
       return;
@@ -538,7 +538,7 @@
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(p.x, p.y, 3 + e * 26, 0, 7); ctx.stroke();
     }
-    // ev noktası
+    // home dot
     const home = homeOf();
     const [hx, hy, hz] = vec(home[0], home[1]);
     const h = project(hx, hy, hz);
@@ -551,7 +551,7 @@
     }
   }
 
-  // sürükleyerek döndürme (ataletli)
+  // drag to rotate (with inertia)
   let drag = null;
   canvas.addEventListener("pointerdown", (e) => {
     const d = Math.hypot(e.clientX - cx, e.clientY - cy);
@@ -577,14 +577,14 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (!drag) {
-      vel += (spin - vel) * Math.min(1, dt * 1.5); // atalet → sabit dönüşe geri dön
+      vel += (spin - vel) * Math.min(1, dt * 1.5); // inertia → ease back to the steady spin
       lambda += vel * dt;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     if (gl) {
       drawGL();
-      // 2D katman dünyanın üstünde: arka plan öğeleri kürenin dışına kırpılır
+      // the 2D layer is above the globe: background elements are clipped to outside the sphere
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip("evenodd");
       drawStars(now / 1000, dt);
@@ -598,7 +598,7 @@
     drawAtmosphere();
     drawDots();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (T.glow > 0) { // parıltı katmanı (yalnızca koyu temada)
+    if (T.glow > 0) { // glow layer (dark theme only)
       gctx.clearRect(0, 0, glow.width, glow.height);
       if (hasFilter) gctx.filter = "blur(1px)";
       gctx.drawImage(dots, 0, 0, glow.width, glow.height);

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,39 +30,39 @@
   <div class="body">
     <p class="line prompt"><b>recep</b>:<span class="path">~</span>$ <span class="cmd">stats --last 7d</span></p>
     <div class="big stats">
-      <div class="stat"><b>{{.Total}}</b><span>tekil ziyaret (7 gün)</span></div>
-      <div class="stat"><b>{{.Online}}</b><span>şu an sitede</span></div>
+      <div class="stat"><b>{{.Total}}</b><span>unique visits (7 days)</span></div>
+      <div class="stat"><b>{{.Online}}</b><span>on the site now</span></div>
     </div>
 
     <div class="grid">
       <section>
-        <h2>günlük</h2>
-        <table>{{range .Days}}<tr><td>{{.Name}}</td><td class="n">{{.N}}</td></tr>{{else}}<tr><td class="faint">henüz ziyaret yok</td></tr>{{end}}</table>
+        <h2>daily</h2>
+        <table>{{range .Days}}<tr><td>{{.Name}}</td><td class="n">{{.N}}</td></tr>{{else}}<tr><td class="faint">no visits yet</td></tr>{{end}}</table>
       </section>
       <section>
-        <h2>şu an sitede</h2>
-        <table>{{range .OnlineCities}}<tr><td>{{.}}</td></tr>{{else}}<tr><td class="faint">kimse yok</td></tr>{{end}}</table>
+        <h2>on the site now</h2>
+        <table>{{range .OnlineCities}}<tr><td>{{.}}</td></tr>{{else}}<tr><td class="faint">nobody</td></tr>{{end}}</table>
       </section>
       <section>
-        <h2>ülkeler</h2>
+        <h2>countries</h2>
         <table>{{range .Countries}}<tr><td>{{.Name}}</td><td class="n">{{.N}}</td></tr>{{end}}</table>
       </section>
       <section>
-        <h2>şehirler</h2>
+        <h2>cities</h2>
         <table>{{range .Cities}}<tr><td>{{.Name}}</td><td class="n">{{.N}}</td></tr>{{end}}</table>
       </section>
       <section>
-        <h2>sayfalar</h2>
+        <h2>pages</h2>
         <table>{{range .Pages}}<tr><td>{{.Name}}</td><td class="n">{{.N}}</td></tr>{{end}}</table>
       </section>
       <section>
-        <h2>son ziyaretler</h2>
+        <h2>recent visits</h2>
         <table>{{range .Recent}}<tr><td class="faint">{{.T.Format "02.01 15:04"}}</td><td>{{.City}}, {{.CC}}</td><td class="faint">{{.Page}}</td></tr>{{end}}</table>
       </section>
     </div>
   </div>
   <div class="statusbar">
-    <span>IP adresi saklanmaz · aynı kişi günde bir kez sayılır · veriler 7 gün tutulur</span>
+    <span>no IP addresses stored · each person counted once per day · data kept for 7 days</span>
     <span><a href="https://db-ip.com">IP Geolocation by DB-IP</a></span>
   </div>
 </main>

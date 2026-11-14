@@ -1,4 +1,6 @@
 bin/
 data/
-# CV (telefon numarası içerir): sadece sunucuda/yerelde durur
+# local deploy settings (server address, key path)
+deploy/.env
+# CV (contains a phone number): kept on the server / locally only
 web/static/recep-akyuz-cv.pdf

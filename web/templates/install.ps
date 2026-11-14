@@ -1,5 +1,5 @@
-# {{.Host}}{{.Path}} - SSH anahtarlarini authorized_keys dosyasina ekler.
-# Yonetici PowerShell'de calisirsa administrators_authorized_keys'e de yazar ve ACL'i duzeltir.
+# {{.Host}}{{.Path}} - adds the SSH keys to authorized_keys.
+# When run in an elevated PowerShell it also writes administrators_authorized_keys and fixes its ACL.
 $ErrorActionPreference = 'Stop'
 $keys = @'
 {{.KeysText}}'@ -split "`r?`n" | Where-Object { $_ -match '^\S+ \S+' }
@@ -19,7 +19,7 @@ function Add-Keys([string]$file) {
       $added++
     }
   }
-  Write-Host "OK $file : $added anahtar eklendi"
+  Write-Host "OK $file : $added key(s) added"
 }
 
 Add-Keys (Join-Path $HOME '.ssh\authorized_keys')
@@ -29,5 +29,5 @@ if ($isAdmin) {
   $adminFile = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
   Add-Keys $adminFile
   icacls $adminFile /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F' | Out-Null
-  Write-Host "OK ACL: yalnizca SYSTEM + Administrators"
+  Write-Host "OK ACL: SYSTEM + Administrators only"
 }

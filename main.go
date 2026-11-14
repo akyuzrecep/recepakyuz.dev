@@ -1,5 +1,5 @@
-// recepakyuz.dev + ssh.recepakyuz.dev tek binary.
-// Host "ssh." ile başlıyorsa SSH anahtar sitesi, değilse portfolyo sunulur.
+// recepakyuz.dev + ssh.recepakyuz.dev in a single binary.
+// Hosts starting with "ssh." get the SSH key site; everything else gets the portfolio.
 package main
 
 import (
@@ -25,13 +25,13 @@ import (
 var webFS embed.FS
 
 var (
-	addr    = flag.String("addr", ":8080", "dinlenecek adres")
-	keysDir = flag.String("keys", "keys", "anahtar dosyalarının dizini (<konum>.pub)")
-	dev     = flag.Bool("dev", false, "web/ dizinini diskten oku (her istekte yeniden yükler)")
-	dataDir = flag.String("data", "data", "ziyaretçi verisi, geo veritabanı (dbip-city.mmdb) ve stats.pass dizini")
+	addr    = flag.String("addr", ":8080", "listen address")
+	keysDir = flag.String("keys", "keys", "directory of key files (<location>.pub)")
+	dev     = flag.Bool("dev", false, "serve web/ from disk (reloaded on every request)")
+	dataDir = flag.String("data", "data", "directory for visitor data, the geo database (dbip-city.mmdb) and stats.pass")
 )
 
-// Geçerli bir authorized_keys satırı: tip + base64 gövde + opsiyonel yorum.
+// A valid authorized_keys line: type + base64 body + optional comment.
 var keyLine = regexp.MustCompile(`^(ssh-(ed25519|rsa|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+/=]+( .*)?$`)
 var locName = regexp.MustCompile(`^[a-z0-9-]+$`)
 
@@ -39,7 +39,7 @@ type Key struct {
 	Line, Type, Comment string
 }
 
-func (k Key) ID() string { // doğrulama komutlarında grep'lenecek ifade
+func (k Key) ID() string { // the string the verify commands grep for
 	if k.Comment != "" {
 		return k.Comment
 	}
@@ -55,7 +55,7 @@ func webRoot() fs.FS {
 	return sub
 }
 
-// "main" konumu kök (/) adresinde, diğerleri /<konum> altında sunulur.
+// The "main" location is served at the root (/), others under /<location>.
 func loadKeys(loc string) ([]Key, error) {
 	f, err := os.Open(filepath.Join(*keysDir, loc+".pub"))
 	if err != nil {
@@ -70,7 +70,7 @@ func loadKeys(loc string) ([]Key, error) {
 			continue
 		}
 		if !keyLine.MatchString(line) {
-			log.Printf("keys/%s.pub: geçersiz satır atlandı: %.40s…", loc, line)
+			log.Printf("keys/%s.pub: skipped invalid line: %.40s…", loc, line)
 			continue
 		}
 		parts := strings.SplitN(line, " ", 3)
@@ -92,7 +92,7 @@ func locations() []string {
 			out = append(out, name)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { // main her zaman başta
+	sort.Slice(out, func(i, j int) bool { // main always comes first
 		if out[i] == "main" || out[j] == "main" {
 			return out[i] == "main"
 		}
@@ -101,7 +101,7 @@ func locations() []string {
 	return out
 }
 
-// Tarayıcı mı, yoksa curl/wget/python/openssl gibi bir araç mı?
+// A browser, or a tool like curl/wget/python/openssl?
 func wantsHTML(r *http.Request) bool {
 	return strings.Contains(r.Header.Get("Accept"), "text/html")
 }
@@ -139,7 +139,7 @@ func mustSub(f fs.FS, dir string) fs.FS {
 	return s
 }
 
-// ---------- SSH sitesi ----------
+// ---------- SSH site ----------
 
 type sshPage struct {
 	Base, Host, Loc, Path string
@@ -205,7 +205,7 @@ func handleSSH(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ---------- Portfolyo ----------
+// ---------- Portfolio ----------
 
 func handlePortfolio(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -222,7 +222,7 @@ func handlePortfolio(w http.ResponseWriter, r *http.Request) {
 		w.Write(b)
 		return
 	}
-	// curl recepakyuz.dev → düz metin kartvizit
+	// curl recepakyuz.dev → plain-text business card
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, textCard())
 }
@@ -252,7 +252,7 @@ func textCard() string {
 	return b.String()
 }
 
-// ---------- şablonlar ----------
+// ---------- templates ----------
 
 func renderHTML(w http.ResponseWriter, name string, data any) {
 	t, err := template.ParseFS(webRoot(), name)
@@ -293,6 +293,6 @@ func main() {
 			handlePortfolio(w, r)
 		}
 	})
-	log.Printf("dinleniyor %s (dev=%v)  →  http://localhost%[1]s  ·  http://ssh.localhost%[1]s", *addr, *dev)
+	log.Printf("listening on %s (dev=%v)  →  http://localhost%[1]s  ·  http://ssh.localhost%[1]s", *addr, *dev)
 	log.Fatal(http.ListenAndServe(*addr, mux))
 }

@@ -1,4 +1,4 @@
-# ssh.recepakyuz.dev (kök) adresinde sunulan anahtarlar.
-# Her satır bir public key. '#' ile başlayan satırlar yok sayılır.
-# Yeni konum için keys/<ad>.pub oluştur → ssh.recepakyuz.dev/<ad>
+# Keys served at ssh.recepakyuz.dev (root).
+# One public key per line. Lines starting with '#' are ignored.
+# For another location create keys/<name>.pub → ssh.recepakyuz.dev/<name>
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0RZX1FbBFZ30cRHPv+OjGc3fqUo2n5dB5wjxMoqGbL reco@recep-PC
